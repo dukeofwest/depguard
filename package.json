@@ -12,7 +12,13 @@
     "typecheck": "tsc -b --pretty",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check:docs": "node tools/check-docs.cjs ."
+    "check:docs": "node tools/check-docs.cjs .",
+    "check:csp": "node tools/csp-test.mjs dist/depguard/browser",
+    "check:release": "node tools/release-review.cjs dist/depguard/browser",
+    "audit:prod": "npm audit --omit=dev --audit-level=low",
+    "audit:all": "npm audit --audit-level=high",
+    "check:security": "npm run audit:prod && npm run audit:all && npm run audit:signatures && npm run check:csp && npm run check:release",
+    "audit:signatures": "npm audit signatures"
   },
   "private": true,
   "packageManager": "npm@10.9.9",
@@ -35,7 +41,7 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "typescript-eslint": "8.59.2",
-    "vitest": "4.0.8"
+    "vitest": "4.1.12"
   },
   "description": "GitHub repository health analyzer: dependencies, security configuration, maintenance and engineering signals in one report.",
   "license": "MIT",

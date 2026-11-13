@@ -1,3 +1,5 @@
+import { boundedString } from '../../engine/validation/external-input';
+import { boundedHeader } from './response-guard';
 import type {
   ReleaseInfo,
   RepositoryMetadata,
@@ -24,8 +26,15 @@ function isObject(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * A usable string, or null.
+ *
+ * Length-bounded: every string here is third-party text that reaches the DOM, so an
+ * absurdly long value is truncated rather than carried through to the layout and to the
+ * engine's regular expressions.
+ */
 function str(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  return boundedString(value);
 }
 
 function num(value: unknown): number | null {
@@ -239,10 +248,11 @@ export function toWeeklyCommits(body: unknown): readonly number[] | null {
  * header is absent — which legitimately happens when there is only one page.
  */
 export function contributorCountFromLink(linkHeader: string | null): number | null {
-  if (linkHeader === null) {
+  const bounded = boundedHeader(linkHeader);
+  if (bounded === null) {
     return null;
   }
-  const match = /[?&]page=(\d+)[^>]*>;\s*rel="last"/.exec(linkHeader);
+  const match = /[?&]page=(\d+)[^>]*>;\s*rel="last"/.exec(bounded);
   if (match === null) {
     return null;
   }

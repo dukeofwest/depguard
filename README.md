@@ -111,6 +111,24 @@ session and are gone on reload.
 
 Full detail in [docs/PRIVACY.md](docs/PRIVACY.md).
 
+### Security
+
+Everything DepGuard reads — repository names, package names, advisory text — is written by
+third parties, so all of it is treated as hostile input. A strict Content Security Policy
+with Trusted Types enforcement, an allowlist of three destination hosts, and explicit
+bounds on response size, nesting depth and string length are the main controls.
+
+The policy is not taken on trust: `npm run check:csp` drives real headless Chrome and
+attempts each thing it should prevent — inline script, an unapproved CDN, a fetch to
+another origin, `innerHTML` assignment, a `<base>` hijack, a cross-origin form post — and
+fails the build unless the browser refuses all of them while the application still works.
+Writing that check found two real defects in a policy that read correctly on paper.
+
+Threat model, residual risks and the dependency triage are in
+[docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) and
+[docs/SECURITY.md](docs/SECURITY.md). DepGuard is not claimed to be immune to attack; what
+is claimed is that the controls exist, are tested, and run in CI on every change.
+
 ### Rate limits
 
 Anonymous GitHub access allows **60 requests per hour per IP address**. An analysis costs
@@ -134,17 +152,20 @@ real violations that review missed.
 
 ## Documentation
 
-| Document                                      | Contents                                                   |
-| --------------------------------------------- | ---------------------------------------------------------- |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)       | Layers, the engine boundary, state and cancellation        |
-| [SCORING.md](docs/SCORING.md)                 | Weights, coverage floors, deductions, worked examples      |
-| [DATA-SOURCES.md](docs/DATA-SOURCES.md)       | Every endpoint, why it is needed, and its quota cost       |
-| [API-LIMITATIONS.md](docs/API-LIMITATIONS.md) | What DepGuard cannot determine, and why                    |
-| [PRIVACY.md](docs/PRIVACY.md)                 | What is sent, to whom, and what is stored                  |
-| [SECURITY.md](docs/SECURITY.md)               | Threat model, review findings, accepted risks              |
-| [ROADMAP.md](docs/ROADMAP.md)                 | Open questions and what is deliberately deferred           |
-| [adr/](docs/adr/)                             | Eight architecture decision records                        |
-| [phase-0/](docs/phase-0/)                     | The feasibility report, with reproducible evidence scripts |
+| Document                                          | Contents                                                   |
+| ------------------------------------------------- | ---------------------------------------------------------- |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Layers, the engine boundary, state and cancellation        |
+| [SCORING.md](docs/SCORING.md)                     | Weights, coverage floors, deductions, worked examples      |
+| [DATA-SOURCES.md](docs/DATA-SOURCES.md)           | Every endpoint, why it is needed, and its quota cost       |
+| [API-LIMITATIONS.md](docs/API-LIMITATIONS.md)     | What DepGuard cannot determine, and why                    |
+| [PRIVACY.md](docs/PRIVACY.md)                     | What is sent, to whom, and what is stored                  |
+| [SECURITY.md](docs/SECURITY.md)                   | Controls, CSP, limits, dependency triage, hardening        |
+| [THREAT-MODEL.md](docs/THREAT-MODEL.md)           | Assets, trust boundaries, attack scenarios, residual risks |
+| [SECURITY-TESTING.md](docs/SECURITY-TESTING.md)   | How each control is tested, and what is not covered        |
+| [INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md) | What to do when something gets through                     |
+| [ROADMAP.md](docs/ROADMAP.md)                     | Open questions and what is deliberately deferred           |
+| [adr/](docs/adr/)                                 | Eight architecture decision records                        |
+| [phase-0/](docs/phase-0/)                         | The feasibility report, with reproducible evidence scripts |
 
 The Phase 0 report is worth reading if you want to know why the product works the way it
 does: every significant decision was made against measurements from live APIs, including
@@ -166,8 +187,17 @@ On Windows PowerShell, use `npm.cmd` if the execution policy blocks `npm.ps1`.
 ```bash
 npm run lint         # ESLint, including engine purity rules
 npm run typecheck    # strict tsc, including noUncheckedIndexedAccess
-npm run test:ci      # 224 tests
+npm run test:ci      # 313 tests, including adversarial rendering and seeded fuzzing
+npm run check:docs   # documentation claims must match the code
 npm run format:check
+```
+
+Security checks, which need a production build present because two of them inspect the
+artifact rather than the configuration meant to produce it:
+
+```bash
+npm run build -- --configuration github-pages
+npm run check:security   # dependency audits, CSP enforcement proof, artifact review
 ```
 
 Opt-in live tests against the real APIs, which spend the hourly quota:
@@ -190,6 +220,7 @@ Driven by headless Chrome via the DevTools Protocol:
 ```bash
 node tools/a11y-test.mjs      dist/depguard/browser   # contrast, keyboard, semantics
 node tools/smoke-test.mjs     dist/depguard/browser   # render check, console errors
+node tools/csp-test.mjs       dist/depguard/browser   # CSP enforcement, with negative controls
 node tools/workflow-test.mjs  dist/depguard/browser   # full journey (uses API quota)
 node tools/screenshot.mjs     dist/depguard/browser docs/screenshots
 ```

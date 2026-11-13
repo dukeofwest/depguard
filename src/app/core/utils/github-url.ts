@@ -136,6 +136,29 @@ export function parseRepositoryUrl(input: string): ParseResult {
         'Paste the repository address from your browser.',
       );
     }
+    // Reject embedded credentials.
+    //
+    // `https://user:token@github.com/owner/repo` parses with hostname github.com, so the
+    // host check below passes and the credential is silently discarded. No bad request
+    // results - DepGuard sends no credentials anywhere - but accepting it quietly is the
+    // wrong behaviour: a visitor who pasted a URL containing a real token deserves to be
+    // told it was there, not to have it swallowed. It also removes any chance of a future
+    // change carrying userinfo into a request URL.
+    if (url.username.length > 0 || url.password.length > 0) {
+      return invalid(
+        'That URL contains embedded credentials.',
+        'Remove the username and password from the address. DepGuard never uses credentials.',
+      );
+    }
+
+    // Reject a non-default port. github.com serves HTTPS on 443 and nothing else, so a
+    // port is either a mistake or an attempt to redirect the request somewhere unexpected.
+    if (url.port.length > 0 && url.port !== '443') {
+      return unsupported(
+        `DepGuard only analyses repositories on github.com, not port ${url.port}.`,
+      );
+    }
+
     if (!GITHUB_HOSTS.includes(url.hostname.toLowerCase())) {
       return unsupported(
         `DepGuard only analyses repositories on github.com, not ${url.hostname}.`,

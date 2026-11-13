@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege at the top level. No job here writes anything to the repository.
 permissions:
   contents: read
 
@@ -15,12 +16,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to full commit SHAs, not tags. A tag is mutable: whoever
+      # controls the action's repository can repoint v4 at new code, which would execute
+      # with this workflow's token. The comment records which release each SHA is, so the
+      # pin stays auditable; Dependabot proposes the updates.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The checkout token is not needed after cloning, and leaving it in
+          # .git/config would expose it to every later step, including anything a
+          # dependency's build script does.
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      # `cache: npm` is safe here as configured: the cache key is derived from
+      # package-lock.json, GitHub scopes a pull-request cache so it cannot be written back
+      # to the base branch's scope, and `npm ci` verifies every package against the
+      # lockfile's integrity hashes after restoring. A poisoned cache entry therefore
+      # fails the install rather than being installed.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
+
+      # Node 22 bundles npm 10.9.x, whose dependency resolver fails on this tree with
+      # "Cannot read properties of null (reading 'edgesOut')" - an npm bug, reproduced
+      # locally and documented in docs/SECURITY.md. npm 11 resolves it. Pinned exactly so
+      # the toolchain is reproducible rather than whatever npm 11 happens to be today.
+      - name: Pin npm
+        run: npm install -g npm@11.21.2
 
       - name: Install dependencies
         run: npm ci
@@ -42,3 +64,78 @@ jobs:
 
       - name: Production build
         run: npm run build -- --configuration github-pages
+
+      # Proves the Content Security Policy is enforced by a real browser, with negative
+      # controls. A policy that merely parses is not a policy that works.
+      - name: Content Security Policy proof
+        run: npm run check:csp
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Pin npm
+        run: npm install -g npm@11.21.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      # What actually ships to a visitor's browser. This must stay at zero: nothing here
+      # is mitigated by "it only runs at build time".
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=low
+
+      # The build toolchain. Gated at high, because the dev tree carries a standing
+      # population of moderate advisories in transitive build dependencies that are not
+      # reachable from anything DepGuard ships or runs in CI. Each is triaged in
+      # docs/SECURITY.md rather than silently ignored; a high or critical finding fails
+      # the build and must be resolved or explicitly documented before release.
+      - name: Audit build dependencies
+        run: npm audit --audit-level=high
+
+      # Registry signatures and provenance attestations. This checks that every package
+      # installed is the one the registry signed, which is a different question from
+      # whether it has a known advisory - and the one that would catch a tampered tarball
+      # or a compromised publish.
+      - name: Verify package signatures and provenance
+        run: npm audit signatures
+
+      # Report the full picture even when the gates pass, so moderates stay visible in
+      # the log rather than accumulating unseen.
+      - name: Full audit report
+        if: always()
+        run: npm audit || true
+
+  workflows:
+    name: Workflow security (Zizmor)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Zizmor is a static analyser for GitHub Actions workflows: unpinned actions,
+      # template injection into run blocks, excessive permissions, artifact and cache
+      # poisoning, dangerous pull_request_target usage. Installed from PyPI at a pinned
+      # version rather than run as a third-party action, which would itself be another
+      # action to trust.
+      - name: Install Zizmor
+        run: pipx install zizmor==1.32.0
+
+      - name: Analyse workflows
+        run: zizmor --persona=auditor --min-severity=low .github/workflows/

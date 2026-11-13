@@ -33,6 +33,7 @@ function coverage(partial: Partial<DependencyCoverage> = {}): DependencyCoverage
       'version-not-exact': 0,
     },
     rangeVersionsDominant: false,
+    duplicateEntries: 0,
     ...partial,
   };
 }

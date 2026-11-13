@@ -104,6 +104,80 @@ describe('parseRepositoryUrl', () => {
     });
   });
 
+  describe('rejects hosts that are not github.com', () => {
+    // MANDATORY_SECURITY_REQUIREMENT §A8. The parsed owner and repo are interpolated into
+    // api.github.com URLs, so over-permissiveness here is what would turn a text field
+    // into a request-forgery primitive. Every form of "somewhere else" is covered,
+    // including the ones that look like github.com to a careless check.
+    const rejected: readonly [string, string][] = [
+      ['https://127.0.0.1/owner/repo', 'a loopback address'],
+      ['http://localhost:8080/owner/repo', 'localhost'],
+      ['https://192.168.1.1/owner/repo', 'a private network address'],
+      ['https://10.0.0.1/owner/repo', 'another private range'],
+      ['https://172.16.0.1/owner/repo', 'a third private range'],
+      ['https://169.254.169.254/owner/repo', 'the cloud metadata address'],
+      ['https://[::1]/owner/repo', 'an IPv6 loopback'],
+      ['https://2130706433/owner/repo', 'a loopback address in decimal form'],
+      ['https://0x7f000001/owner/repo', 'a loopback address in hexadecimal form'],
+      ['https://github.com./owner/repo', 'a trailing-dot hostname'],
+      ['https://github.com@evil.com/owner/repo', 'github.com as userinfo on another host'],
+      ['https://github.com.evil.com/owner/repo', 'github.com as a subdomain of another host'],
+      ['https://api.github.com/repos/owner/repo', 'the API host rather than the web host'],
+      ['https://raw.githubusercontent.com/owner/repo/main/x', 'the raw content host'],
+    ];
+
+    for (const [input, why] of rejected) {
+      it(`rejects ${why}: ${JSON.stringify(input)}`, () => {
+        expect(parseRepositoryUrl(input).ok).toBe(false);
+      });
+    }
+  });
+
+  describe('rejects credentials and unexpected ports', () => {
+    // Both of these parsed to a clean owner/repo before being rejected explicitly, which
+    // is why they are pinned here: the failure was silent acceptance, not a crash.
+    const rejected: readonly [string, string][] = [
+      ['https://user:pass@github.com/owner/repo', 'a username and password'],
+      ['https://token@github.com/owner/repo', 'a token as userinfo'],
+      ['https://:pass@github.com/owner/repo', 'a password alone'],
+      ['https://github.com:8080/owner/repo', 'a non-default port'],
+      ['https://github.com:22/owner/repo', 'a port for another protocol'],
+    ];
+
+    for (const [input, why] of rejected) {
+      it(`rejects ${why}: ${JSON.stringify(input)}`, () => {
+        expect(parseRepositoryUrl(input).ok).toBe(false);
+      });
+    }
+
+    it('still accepts the explicit default HTTPS port', () => {
+      const result = parseRepositoryUrl('https://github.com:443/expressjs/express');
+      expect(result.ok).toBe(true);
+    });
+
+    it('names the credential problem instead of silently dropping it', () => {
+      const result = parseRepositoryUrl('https://user:token@github.com/owner/repo');
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message.toLowerCase()).toContain('credential');
+      }
+    });
+  });
+
+  describe('is case-insensitive about the host but not the repository', () => {
+    it('accepts an upper-case host', () => {
+      expect(parseRepositoryUrl('https://GITHUB.COM/expressjs/express').ok).toBe(true);
+    });
+
+    it('preserves the case of owner and repo, which GitHub treats as given', () => {
+      const result = parseRepositoryUrl('https://github.com/ExpressJS/Express');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.ref).toEqual({ owner: 'ExpressJS', repo: 'Express' });
+      }
+    });
+  });
+
   it('returns a typed, user-facing error rather than throwing', () => {
     const result = parseRepositoryUrl('https://gitlab.com/a/b');
     expect(result.ok).toBe(false);

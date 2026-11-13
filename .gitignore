@@ -47,3 +47,14 @@ Thumbs.db
 /.angular
 /dist
 /out-tsc
+
+# Credentials. DepGuard uses none at runtime (spec §9.1), so anything matching these is
+# either a mistake or a local experiment; neither belongs in history.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*

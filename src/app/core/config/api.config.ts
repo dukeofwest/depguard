@@ -25,8 +25,8 @@ export const GITHUB_API_VERSION_HEADER = '2022-11-28' as const;
  * Rate limiting (ADR-0004).
  *
  * Anonymous GitHub REST allows 60 requests/hour/IP — confirmed, and the binding
- * constraint on the whole product. A scan costs about 9 requests, so a visitor gets
- * roughly 6 scans per hour.
+ * constraint on the whole product. A scan costs 8 requests, so a visitor gets
+ * roughly 7 scans per hour.
  */
 export const RATE_LIMIT = {
   /**
@@ -76,6 +76,28 @@ export const RESPONSE_LIMITS = {
   maxFileContentBytes: 512 * 1024,
   maxPackages: 20000,
   requestTimeoutMs: 30000,
+
+  /**
+   * Bound on any JSON response body other than the SBOM, in bytes.
+   *
+   * Everything else GitHub or OSV returns is metadata; the largest measured was a
+   * recursive tree for `torvalds/linux` at roughly 7 MB, so 12 MB is generous while
+   * still bounding memory.
+   */
+  maxJsonBytes: 12 * 1024 * 1024,
+
+  /**
+   * Nesting depth, node count and string length are bounded in
+   * `engine/validation/external-input.ts`, which the engine can import and this file
+   * cannot be imported by. See MAX_JSON_DEPTH, MAX_JSON_NODES and
+   * MAX_EXTERNAL_STRING_LENGTH there.
+   */
+
+  /**
+   * Maximum length of a response header value parsed with a regular expression. Only
+   * the `Link` header qualifies; GitHub's is around 200 characters.
+   */
+  maxHeaderLength: 8192,
 } as const;
 
 /**

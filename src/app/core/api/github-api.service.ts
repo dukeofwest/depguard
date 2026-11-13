@@ -24,6 +24,12 @@ import type {
   WorkflowSummary,
 } from '../models/repository.model';
 import { encodeRef } from '../utils/github-url';
+import {
+  DEFAULT_JSON_BOUNDS,
+  SBOM_BOUNDS,
+  parseBoundedJson,
+  type JsonBounds,
+} from './response-guard';
 import { CacheService } from '../services/cache.service';
 import { RateLimitService } from '../services/rate-limit.service';
 import {
@@ -71,6 +77,8 @@ export class GithubApiService {
       .get(`${GITHUB_API_ORIGIN}/rate_limit`, {
         headers: new HttpHeaders({ Accept: GITHUB_ACCEPT_HEADER }),
         observe: 'response',
+        // Only the headers are read, so the body is never parsed.
+        responseType: 'text',
       })
       .pipe(
         timeout(RESPONSE_LIMITS.requestTimeoutMs),
@@ -109,7 +117,7 @@ export class GithubApiService {
     const { owner, repo } = encodeRef(ref);
     return this.getJson(
       `${GITHUB_API_ORIGIN}/repos/${owner}/${repo}/dependency-graph/sbom`,
-      RESPONSE_LIMITS.maxSbomBytes,
+      SBOM_BOUNDS,
     ).pipe(
       this.nullOn404(),
       map((response) => response?.body ?? null),
@@ -260,11 +268,24 @@ export class GithubApiService {
    * Responses are cached by URL so a repeated analysis in the same session spends no
    * quota, and concurrent identical requests are deduplicated by CacheService.
    */
-  private getJson(url: string, maxBytes?: number): Observable<HttpResponse<unknown>> {
-    return this.cache.getOrCreate(`gh:${url}`, () => this.requestJson(url, maxBytes));
+  private getJson(
+    url: string,
+    bounds: JsonBounds = DEFAULT_JSON_BOUNDS,
+  ): Observable<HttpResponse<unknown>> {
+    return this.cache.getOrCreate(`gh:${url}`, () => this.requestJson(url, bounds));
   }
 
-  private requestJson(url: string, maxBytes?: number): Observable<HttpResponse<unknown>> {
+  /**
+   * Requests a body as **text** and parses it under explicit bounds.
+   *
+   * Deliberately not `HttpClient`'s JSON mode. That parses before any size or shape
+   * check can run, so a hostile or pathological body is already an object graph in
+   * memory by the time it could be rejected - and `Content-Length`, the only thing a
+   * pre-parse check could consult, is absent on a chunked response. Taking the text and
+   * parsing it here makes the limits in `response-guard.ts` apply to every response
+   * rather than only to the ones that announce their size.
+   */
+  private requestJson(url: string, bounds: JsonBounds): Observable<HttpResponse<unknown>> {
     if (!isAllowedUrl(url)) {
       // Should be unreachable: every URL is built from validated refs. Kept as a hard
       // stop so a future bug cannot turn into a request to an arbitrary host (§14).
@@ -278,7 +299,7 @@ export class GithubApiService {
       'X-GitHub-Api-Version': GITHUB_API_VERSION_HEADER,
     });
 
-    return this.http.get(url, { headers, observe: 'response' }).pipe(
+    return this.http.get(url, { headers, observe: 'response', responseType: 'text' }).pipe(
       timeout(RESPONSE_LIMITS.requestTimeoutMs),
       retry({
         count: 2,
@@ -293,8 +314,8 @@ export class GithubApiService {
       }),
       map((response) => {
         this.rateLimit.updateFromHeaders(response.headers);
-        this.enforceSizeLimit(response, maxBytes);
-        return response;
+        this.enforceSizeLimit(response, bounds.maxLength);
+        return this.parseBody(response, bounds);
       }),
       catchError((error: unknown) => throwError(() => this.toAppError(error))),
     );
@@ -328,10 +349,14 @@ export class GithubApiService {
     return error instanceof Error && error.name === 'TimeoutError';
   }
 
-  private enforceSizeLimit(response: HttpResponse<unknown>, maxBytes?: number): void {
-    if (maxBytes === undefined) {
-      return;
-    }
+  /**
+   * Rejects an oversized body before it is read, when the server declares its size.
+   *
+   * A cheap early exit only: `Content-Length` is absent on chunked responses and is in
+   * any case the server's own claim, so `parseBody` re-checks the text it actually
+   * received.
+   */
+  private enforceSizeLimit(response: HttpResponse<unknown>, maxBytes: number): void {
     const declared = response.headers.get('content-length');
     if (declared === null) {
       return;
@@ -344,6 +369,39 @@ export class GithubApiService {
         { remedy: 'Very large dependency graphs are not supported in this release.' },
       );
     }
+  }
+
+  /**
+   * Turns response text into a validated object graph.
+   *
+   * An empty body is `null` rather than a parse failure: GitHub returns `202 Accepted`
+   * with no body while it computes commit statistics, and `204` elsewhere. Those are
+   * legitimate "no data yet" answers, which callers already map to `Unknown`.
+   */
+  private parseBody(response: HttpResponse<string>, bounds: JsonBounds): HttpResponse<unknown> {
+    const text = response.body;
+    if (text === null || text.trim().length === 0) {
+      return response.clone<unknown>({ body: null });
+    }
+
+    const parsed = parseBoundedJson(text, bounds);
+    if (parsed.ok) {
+      return response.clone<unknown>({ body: parsed.value });
+    }
+
+    if (parsed.kind === 'malformed') {
+      throw createAppError(
+        'github-unavailable',
+        'GitHub returned a response DepGuard could not read.',
+        {
+          remedy: 'Try again in a moment.',
+        },
+      );
+    }
+
+    throw createAppError('response-too-large', parsed.reason, {
+      remedy: 'Very large or deeply nested dependency graphs are not supported in this release.',
+    });
   }
 
   /** Maps any failure to a typed, user-safe error. Stack traces never escape (§10.5). */

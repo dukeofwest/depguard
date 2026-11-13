@@ -83,4 +83,17 @@ export interface DependencyCoverage {
   readonly skippedByReason: Readonly<Record<SkipReason, number>>;
   /** True when no lockfile appears to be committed — the dominant cause of low coverage. */
   readonly rangeVersionsDominant: boolean;
+  /**
+   * Entries describing a package and version that another entry already described.
+   *
+   * Measured, not hypothetical: `npm/cli` returns 102 of these in 1,207 entries, because
+   * the same package at the same version is reachable through several paths in a real
+   * dependency graph. They are therefore **kept** in the inventory - GitHub reported them
+   * and the count must match what GitHub reported - but they are collapsed before
+   * querying OSV, since they are the same question with the same answer.
+   *
+   * Reported so that an SBOM consisting of one entry repeated 100,000 times is visible
+   * rather than silently expensive.
+   */
+  readonly duplicateEntries: number;
 }

@@ -5,6 +5,7 @@ import { Observable, catchError, concatMap, from, map, mergeMap, of, reduce, tim
 import { OSV_API_ORIGIN, OSV_LIMITS, RESPONSE_LIMITS } from '../config/api.config';
 import type { NormalizedPackage } from '../models/dependency.model';
 import { normalizeVersionForQuery } from '../../engine/dependencies/purl';
+import { DEFAULT_JSON_BOUNDS, parseBoundedJson } from './response-guard';
 
 /**
  * OSV.dev vulnerability client.
@@ -105,11 +106,20 @@ export class OsvApiService {
     }));
 
     return this.http
-      .post<unknown>(`${OSV_API_ORIGIN}/v1/querybatch`, { queries }, { observe: 'body' })
+      .post(
+        `${OSV_API_ORIGIN}/v1/querybatch`,
+        { queries },
+        {
+          observe: 'body',
+          // Text, then parsed under explicit bounds - see `requestJson` in
+          // github-api.service.ts for why HttpClient's JSON mode is not used.
+          responseType: 'text',
+        },
+      )
       .pipe(
         timeout(RESPONSE_LIMITS.requestTimeoutMs),
-        map((body) => ({
-          matches: readBatchMatches(body, packages),
+        map((text) => ({
+          matches: readBatchMatches(readBounded(text), packages),
           checked: packages.length,
           failed: 0,
           failureReason: null as string | null,
@@ -174,11 +184,25 @@ export class OsvApiService {
   /** A single advisory. Failure yields null: one lost record must not fail the scan. */
   private fetchDetail(id: string): Observable<unknown | null> {
     const url = `${OSV_API_ORIGIN}/v1/vulns/${encodeURIComponent(id)}`;
-    return this.http.get<unknown>(url).pipe(
+    return this.http.get(url, { responseType: 'text' }).pipe(
       timeout(RESPONSE_LIMITS.requestTimeoutMs),
+      map((text) => readBounded(text)),
       catchError(() => of(null)),
     );
   }
+}
+
+/**
+ * Parses an OSV body under the shared response bounds.
+ *
+ * Returns null on anything oversized, malformed or pathologically nested. A lost
+ * advisory record degrades the result - which the report then declares as partial - and
+ * that is the right trade: the alternative is letting a hostile response from a public
+ * API decide how much memory this page allocates.
+ */
+function readBounded(text: string): unknown {
+  const parsed = parseBoundedJson(text, DEFAULT_JSON_BOUNDS);
+  return parsed.ok ? parsed.value : null;
 }
 
 interface BatchOutcome {

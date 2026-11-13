@@ -1,0 +1,51 @@
+# Dependency update automation.
+#
+# Two ecosystems matter here. npm is the application's own dependency tree, and
+# github-actions is the set of third-party actions that run with access to this
+# repository - which is why the actions are pinned to commit SHAs in the workflows.
+# Dependabot understands a SHA pin with a version comment and will update both together,
+# so pinning does not mean going stale.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Angular's packages move in lockstep; separate PRs for each would never pass CI.
+    groups:
+      angular:
+        patterns:
+          - '@angular/*'
+          - '@angular-devkit/*'
+          - 'ng-packagr'
+      typescript-and-lint:
+        patterns:
+          - 'typescript'
+          - 'typescript-eslint'
+          - 'eslint*'
+          - '@eslint/*'
+          - 'angular-eslint'
+          - 'prettier'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - 'jsdom'
+    labels:
+      - dependencies
+    commit-message:
+      prefix: 'deps'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: 'ci'

@@ -2,6 +2,82 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+
+    <!--
+      Content Security Policy.
+
+      Delivered as a meta tag because GitHub Pages serves a fixed set of response headers
+      and provides no way to add one. A meta-tag policy is enforced by the browser exactly
+      as a header would be, with two documented exceptions noted below. See
+      docs/THREAT-MODEL.md for the full reasoning and the hosting alternatives.
+
+      It must stay the first thing in <head> after charset: directives only apply to
+      content the parser meets after the policy.
+
+      - default-src 'none'      Nothing is permitted that is not named below.
+      - script-src 'self'       Bundles only. No inline script, no eval, no CDN. Angular
+                                is AOT-compiled, so the JIT compiler is absent from the
+                                build and 'unsafe-eval' is not needed.
+      - style-src 'self'        Stylesheets from the bundle, plus:
+          'unsafe-inline'       Required, and verified as required in real Chrome rather
+                                than assumed. Angular injects each component's styles as a
+                                <style> element at runtime, and two components also use
+                                style bindings ([style.width.%] on the coverage bar,
+                                [style.--dg-progress] on the score ring) which become
+                                inline style attributes. Without this the page renders
+                                unstyled.
+
+                                Why this is an acceptable allowance, and not a hole:
+                                 * It applies to CSS only. script-src stays 'self' with no
+                                   'unsafe-inline' and no 'unsafe-eval'.
+                                 * CSS cannot execute script in any browser DepGuard
+                                   supports.
+                                 * The usual CSS-injection payoff is exfiltration via a
+                                   crafted background-image or @import. Both are already
+                                   impossible here: img-src is 'self' data: and default-src
+                                   is 'none', so CSS cannot reach any external origin.
+                                A nonce would be stricter but cannot work on a static host
+                                - a nonce must be unique per response, which requires a
+                                server. Per-build hashes were considered and rejected in
+                                docs/THREAT-MODEL.md: they would need regenerating on every
+                                style change and add no protection the two points above do
+                                not already provide.
+      - img-src 'self' data:    Own favicon, plus data: for inline SVG icons.
+      - connect-src             The three hosts DepGuard contacts, and no others. This is
+                                the directive that makes exfiltration to an attacker's
+                                server impossible even if markup injection were achieved.
+      - object-src 'none'       No plugins, ever.
+      - base-uri 'self'         A <base> injection would silently repoint every relative
+                                URL in the document, including the script bundles. 'none'
+                                was tried first and blocks the <base href="/depguard/">
+                                that GitHub Pages project sites require; 'self' still
+                                confines the base URI to this origin, which is what stops
+                                the attack.
+      - form-action 'none'      The application contains no form submission.
+      - frame-src/child-src     Nothing is embedded.
+      - worker-src 'none'       ADR confirmed no Web Worker is used.
+      - manifest-src 'none'     No web app manifest is shipped.
+      - require-trusted-types-for / trusted-types
+                                Makes assignment to innerHTML and similar sinks a type
+                                error at runtime unless it passes a named policy. Angular
+                                creates the 'angular' policy; 'angular#bundler' is used by
+                                the CLI's lazy-chunk loader. 'angular#unsafe-bypass' is
+                                deliberately NOT listed, so any future call to
+                                bypassSecurityTrustHtml fails loudly instead of silently
+                                reintroducing an XSS sink.
+
+      Not expressible in a meta tag, by specification:
+      - frame-ancestors, which cannot be set as a meta directive at all.
+      - Strict-Transport-Security, which is a header and is supplied by GitHub Pages.
+      Both are covered in docs/THREAT-MODEL.md with their residual risk.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://api.osv.dev; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; require-trusted-types-for 'script'; trusted-types angular angular#bundler"
+    />
+
+    <!-- Defence in depth; also honoured by browsers that ignore a directive above. -->
+    <meta name="referrer" content="no-referrer" />
     <title>DepGuard — GitHub repository health analyzer</title>
     <!-- Rewritten at build time for GitHub Pages via the `github-pages` configuration. -->
     <base href="/" />
