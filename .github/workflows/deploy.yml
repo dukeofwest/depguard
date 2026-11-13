@@ -23,8 +23,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     permissions:
-      # Read the source in order to build it. This job does not publish.
-      contents: read
+      contents: read # Read the source in order to build it; this job does not publish.
 
     steps:
       # Pinned to full commit SHAs. A tag can be repointed by whoever controls the
@@ -85,12 +84,8 @@ jobs:
     # The only job in the repository with write access to anything, and it runs no
     # repository code: it publishes the artifact the build job produced and nothing else.
     permissions:
-      # Publish the artifact the build job produced. This is the only write scope granted
-      # anywhere in this repository.
-      pages: write
-      # Mint the OIDC token actions/deploy-pages exchanges for a deployment credential,
-      # which is what removes the need for a long-lived secret.
-      id-token: write
+      pages: write # Publish the built artifact; the only write scope in this repository.
+      id-token: write # OIDC token deploy-pages exchanges, so no long-lived secret exists.
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

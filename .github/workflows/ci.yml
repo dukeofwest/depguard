@@ -8,7 +8,7 @@ on:
 
 # Least privilege at the top level. No job here writes anything to the repository.
 permissions:
-  contents: read
+  contents: read # Read the source to test it; nothing here writes to the repository.
 
 # One run per ref. A second push supersedes the first instead of running alongside it,
 # which stops a push-twice from occupying every runner and keeps the reported status
@@ -83,8 +83,7 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     permissions:
-      # Read the source to test it. This job publishes nothing and needs no write scope.
-      contents: read
+      contents: read # This job publishes nothing and needs no write scope.
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -129,8 +128,7 @@ jobs:
     name: Workflow security (Zizmor)
     runs-on: ubuntu-latest
     permissions:
-      # Read the source to test it. This job publishes nothing and needs no write scope.
-      contents: read
+      contents: read # This job publishes nothing and needs no write scope.
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
