@@ -56,6 +56,31 @@ export class GithubApiService {
 
   // ---- Public API ------------------------------------------------------
 
+  /**
+   * Primes the rate-limit display without spending any quota.
+   *
+   * Phase 0 confirmed `GET /rate_limit` reports the budget and does **not** decrement it.
+   * Calling it on load means the remaining-requests indicator is populated before the
+   * user's first scan rather than appearing only after it — which matters most for a
+   * visitor arriving on a shared IP whose budget is already spent (ADR-0004).
+   *
+   * Failure is deliberately silent: this is a display nicety, not a prerequisite.
+   */
+  primeRateLimit(): Observable<void> {
+    return this.http
+      .get(`${GITHUB_API_ORIGIN}/rate_limit`, {
+        headers: new HttpHeaders({ Accept: GITHUB_ACCEPT_HEADER }),
+        observe: 'response',
+      })
+      .pipe(
+        timeout(RESPONSE_LIMITS.requestTimeoutMs),
+        map((response) => {
+          this.rateLimit.updateFromHeaders(response.headers);
+        }),
+        catchError(() => of(undefined)),
+      );
+  }
+
   /** `GET /repos/{owner}/{repo}` — the only strictly required request. */
   getRepository(ref: RepositoryRef): Observable<RepositoryMetadata> {
     const { owner, repo } = encodeRef(ref);

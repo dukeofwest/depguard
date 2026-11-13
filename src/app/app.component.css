@@ -66,36 +66,12 @@
 
 .main {
   flex: 1 0 auto;
-  padding-block: var(--space-8) var(--space-7);
+  padding-block: var(--space-6) var(--space-7);
 }
 
 /* The skip-link target is focusable but must not draw a focus ring of its own. */
 .main:focus {
   outline: none;
-}
-
-.hero {
-  max-width: 46rem;
-}
-
-.hero__title {
-  font-size: var(--text-display);
-  letter-spacing: -0.02em;
-  margin-bottom: var(--space-4);
-}
-
-.hero__lead {
-  font-size: var(--text-lg);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-5);
-}
-
-.hero__note {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  max-width: 38rem;
-  border-left: 2px solid var(--color-border-strong);
-  padding-left: var(--space-4);
 }
 
 /* ---- Footer ------------------------------------------------------------ */
@@ -131,5 +107,127 @@
 
   .main {
     padding-block: var(--space-6) var(--space-5);
+  }
+}
+
+/* ---- Header meta --------------------------------------------------------- */
+
+.header__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.header__meta a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.header__meta a:hover {
+  color: var(--color-text-primary);
+}
+
+/* Rate-limit budget. Visible at all times rather than discovered on failure
+   (ADR-0004), which is only possible because Phase 0 proved the header is
+   readable from JavaScript. */
+.budget {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.budget--low {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.budget__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.budget--low .budget__value {
+  color: var(--color-warning);
+}
+
+/* The wordmark is a button (it resets the scan) but must look like a brand. */
+.wordmark {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ---- Message states (cancelled, failed) ---------------------------------- */
+
+.message {
+  max-width: 44rem;
+  padding-block: var(--space-7);
+}
+
+.message__title {
+  font-size: var(--text-2xl);
+  margin-bottom: var(--space-3);
+}
+
+.message__body {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+  max-width: 62ch;
+}
+
+.message__body code {
+  color: var(--color-text-primary);
+}
+
+.message__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.button {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.button--ghost {
+  background: transparent;
+  border-color: var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
+.button--ghost:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 640px) {
+  .header__meta {
+    gap: var(--space-3);
+  }
+
+  .budget__label {
+    display: none;
   }
 }

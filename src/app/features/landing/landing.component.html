@@ -1,0 +1,104 @@
+<section class="hero">
+  <h1 class="hero__title">Know the health of any GitHub repository.</h1>
+  <p class="hero__lead">
+    Analyse dependencies, security practices, maintenance activity and engineering signals in one
+    clear report.
+  </p>
+
+  <form class="search" (submit)="submit($event)" novalidate>
+    <div class="search__field">
+      <label class="search__label" for="repository-url">GitHub repository URL</label>
+      <input
+        id="repository-url"
+        class="search__input"
+        type="text"
+        inputmode="url"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="https://github.com/owner/repository"
+        [value]="url()"
+        (input)="onInput($event)"
+        [attr.aria-invalid]="validationError() !== null"
+        [attr.aria-describedby]="validationError() !== null ? 'url-error' : 'url-hint'"
+      />
+      <p class="search__hint" id="url-hint">
+        Public repositories only. You can also paste <code>owner/repository</code>.
+      </p>
+    </div>
+
+    <button class="search__button" type="submit" [disabled]="!canScan()">Analyse</button>
+  </form>
+
+  @if (validationError(); as error) {
+    <p class="search__error" id="url-error" role="alert">
+      <strong>{{ error.message }}</strong>
+      @if (error.remedy) {
+        <span>{{ error.remedy }}</span>
+      }
+    </p>
+  }
+
+  @if (!canScan()) {
+    <p class="search__error" role="alert">
+      <strong>GitHub’s hourly request limit has been used up.</strong>
+      <span>
+        DepGuard analyses public repositories without an account, which GitHub limits to 60 requests
+        per hour per IP address. Please try again later.
+      </span>
+    </p>
+  }
+
+  <div class="examples">
+    <span class="examples__label">Try:</span>
+    @for (example of examples; track example) {
+      <button class="examples__item" type="button" (click)="useExample(example)">
+        {{ example }}
+      </button>
+    }
+  </div>
+
+  <p class="privacy">
+    Analysis runs entirely in your browser. DepGuard contacts only the GitHub and OSV.dev public
+    APIs, stores nothing, and never asks for an account or a token.
+    @if (scansRemaining() !== null) {
+      <span class="privacy__budget">
+        About {{ scansRemaining() }} more {{ scansRemaining() === 1 ? 'scan' : 'scans' }}
+        available this hour.
+      </span>
+    }
+  </p>
+</section>
+
+<section class="categories" aria-labelledby="categories-heading">
+  <h2 class="categories__heading" id="categories-heading">What gets analysed</h2>
+  <ul class="categories__grid">
+    @for (category of categories; track category.title) {
+      <li class="dg-card category">
+        <h3 class="category__title">{{ category.title }}</h3>
+        <p class="category__detail">{{ category.detail }}</p>
+      </li>
+    }
+  </ul>
+</section>
+
+<section class="limits" aria-labelledby="limits-heading">
+  <h2 class="limits__heading" id="limits-heading">What DepGuard cannot tell you</h2>
+  <ul class="limits__list">
+    <li>
+      It does not read or execute source code, so it cannot find vulnerabilities in the code itself.
+    </li>
+    <li>
+      It can see that a configuration file exists, but not whether Dependabot alerts, code scanning
+      or CI runs are actually enabled and passing — that needs authentication.
+    </li>
+    <li>
+      Vulnerabilities can only be checked for dependencies with an exact version. Projects that do
+      not commit a lockfile declare version ranges, which cannot be matched against advisory
+      databases.
+    </li>
+    <li>
+      No detected vulnerabilities is not the same as safe. Every report shows how much of the
+      intended analysis it was actually able to complete.
+    </li>
+  </ul>
+</section>

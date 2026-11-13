@@ -1,0 +1,111 @@
+<div class="toolbar">
+  <div class="toolbar__field toolbar__field--grow">
+    <label class="toolbar__label" for="dep-search">Search packages</label>
+    <input
+      id="dep-search"
+      class="toolbar__input"
+      type="search"
+      placeholder="Package name"
+      autocomplete="off"
+      [value]="search()"
+      (input)="onSearch($event)"
+    />
+  </div>
+
+  <div class="toolbar__field">
+    <label class="toolbar__label" for="dep-ecosystem">Ecosystem</label>
+    <select id="dep-ecosystem" class="toolbar__select" (change)="onEcosystem($event)">
+      <option value="all">All</option>
+      @for (ecosystem of ecosystems(); track ecosystem) {
+        <option [value]="ecosystem">{{ ecosystem }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="toolbar__field">
+    <label class="toolbar__label" for="dep-status">Status</label>
+    <select id="dep-status" class="toolbar__select" (change)="onStatus($event)">
+      <option value="all">All ({{ counts().total }})</option>
+      <option value="vulnerable">Vulnerable ({{ counts().vulnerable }})</option>
+      <option value="clean">Checked, no advisories</option>
+      <option value="unchecked">Not checked ({{ counts().unchecked }})</option>
+    </select>
+  </div>
+</div>
+
+@if (filtered().length === 0) {
+  <p class="empty">No dependencies match these filters.</p>
+} @else {
+  <div class="table-wrap">
+    <table class="table">
+      <caption class="dg-visually-hidden">
+        Dependency inventory,
+        {{
+          filtered().length
+        }}
+        of
+        {{
+          counts().total
+        }}
+        shown
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Package</th>
+          <th scope="col">Ecosystem</th>
+          <th scope="col">Version</th>
+          <th scope="col">Checked</th>
+          <th scope="col">Advisories</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of visible(); track row.package.key) {
+          <tr>
+            <td class="table__name" [attr.data-label]="'Package'">
+              {{ row.package.name }}
+              @if (row.package.relationship !== 'unknown') {
+                <span class="table__tag">{{ row.package.relationship }}</span>
+              }
+            </td>
+            <td [attr.data-label]="'Ecosystem'">
+              {{ row.package.ecosystem ?? row.package.purlType ?? 'unknown' }}
+            </td>
+            <td class="table__version" [attr.data-label]="'Version'">
+              {{ row.package.declaredVersion ?? '—' }}
+            </td>
+            <td [attr.data-label]="'Checked'">
+              @if (row.wasChecked) {
+                <span class="pill pill--checked">Yes</span>
+              } @else {
+                <span class="pill pill--unchecked" [title]="skipLabel(row.package.skipReason)">
+                  {{ skipLabel(row.package.skipReason) }}
+                </span>
+              }
+            </td>
+            <td [attr.data-label]="'Advisories'">
+              @if (!row.wasChecked) {
+                <span class="table__muted">—</span>
+              } @else if (row.vulnerabilityCount === 0) {
+                <span class="table__muted">None found</span>
+              } @else {
+                <span class="table__advisories">
+                  <strong>{{ row.vulnerabilityCount }}</strong>
+                  @if (severityOf(row); as severity) {
+                    <dg-severity-badge [severity]="severity" />
+                  }
+                </span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (hiddenCount() > 0) {
+    <p class="truncated">
+      Showing the first {{ visible().length }} of {{ filtered().length }} matching dependencies. Use
+      search or filters to narrow the list.
+    </p>
+  }
+}

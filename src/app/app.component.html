@@ -3,7 +3,7 @@
 <div class="shell">
   <header class="header">
     <div class="dg-container header__inner">
-      <a class="wordmark" href="./" aria-label="DepGuard home">
+      <button class="wordmark" type="button" (click)="reset()" aria-label="DepGuard home">
         <svg
           class="wordmark__mark"
           viewBox="0 0 24 24"
@@ -29,32 +29,88 @@
           />
         </svg>
         <span class="wordmark__text">Dep<span class="wordmark__accent">Guard</span></span>
-      </a>
+      </button>
 
-      <!-- Scoring and Privacy links are added in Phase 7, with the documents they
-           point at. Linking to them now would ship broken links. -->
-      <nav class="header__nav" aria-label="Primary">
+      <div class="header__meta">
+        @if (remaining() !== null) {
+          <span
+            class="budget"
+            [class.budget--low]="budgetIsLow()"
+            [title]="'GitHub allows 60 unauthenticated requests per hour per IP address. One analysis uses about 8.'"
+          >
+            <span class="budget__value">{{ remaining() }}/{{ limit() }}</span>
+            <span class="budget__label">API requests left</span>
+            @if (resetLabel(); as reset) {
+              <span class="dg-visually-hidden">, resetting at {{ reset }}</span>
+            }
+          </span>
+        }
         <a [href]="repositoryUrl" rel="noopener noreferrer" target="_blank">
           GitHub
           <span class="dg-visually-hidden">(opens in a new tab)</span>
         </a>
-      </nav>
+      </div>
     </div>
   </header>
 
   <main class="main" id="main" tabindex="-1">
     <div class="dg-container">
-      <section class="hero">
-        <h1 class="hero__title">Know the health of any GitHub repository.</h1>
-        <p class="hero__lead">
-          Analyse dependencies, security practices, maintenance activity and engineering signals in
-          one clear report.
-        </p>
-        <p class="hero__note">
-          Analysis runs entirely in your browser against the GitHub and OSV.dev public APIs. No
-          account, no token, and nothing you enter is stored or sent anywhere else.
-        </p>
-      </section>
+      @switch (state().kind) {
+        @case ('idle') {
+          <dg-landing />
+        }
+
+        @case ('running') {
+          <dg-analysis-progress
+            [ref]="$any(state()).ref"
+            [stage]="$any(state()).stage"
+            [detail]="$any(state()).detail"
+          />
+        }
+
+        @case ('completed') {
+          <dg-dashboard [report]="$any(state()).report" />
+        }
+
+        @case ('cancelled') {
+          <section class="message">
+            <h1 class="message__title">Analysis cancelled</h1>
+            <p class="message__body">
+              The analysis of
+              <code>{{ $any(state()).ref.owner }}/{{ $any(state()).ref.repo }}</code> was stopped
+              before it finished.
+            </p>
+            <div class="message__actions">
+              <button class="button" type="button" (click)="retry()">Try again</button>
+              <button class="button button--ghost" type="button" (click)="reset()">
+                Analyse something else
+              </button>
+            </div>
+          </section>
+        }
+
+        @case ('failed') {
+          <section class="message" role="alert">
+            <h1 class="message__title">{{ $any(state()).error.message }}</h1>
+            @if ($any(state()).error.remedy; as remedy) {
+              <p class="message__body">{{ remedy }}</p>
+            }
+            @if (retryTime(); as time) {
+              <p class="message__body">
+                The limit resets at approximately <strong>{{ time }}</strong>.
+              </p>
+            }
+            <div class="message__actions">
+              @if (canRetry()) {
+                <button class="button" type="button" (click)="retry()">Try again</button>
+              }
+              <button class="button button--ghost" type="button" (click)="reset()">
+                Back to start
+              </button>
+            </div>
+          </section>
+        }
+      }
     </div>
   </main>
 

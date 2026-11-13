@@ -1,0 +1,151 @@
+<!-- A. Repository header -->
+<dg-repository-header
+  [repository]="report().repository"
+  (newScan)="newScan()"
+  (exportJson)="exportJson()"
+/>
+
+<!-- B. Overall score and coverage, at equal prominence (§6.3) -->
+<section class="overall" aria-labelledby="overall-heading">
+  <h2 class="dg-visually-hidden" id="overall-heading">Overall health</h2>
+
+  @if (report().overall.kind === 'scored') {
+    <div class="overall__score">
+      <dg-score-ring [score]="$any(report().overall).score" [band]="$any(report().overall).band" />
+      <p class="overall__band">{{ $any(report().overall).band }}</p>
+    </div>
+    <div class="overall__detail">
+      <dg-coverage-bar [coverage]="$any(report().overall).coverage" />
+      <p class="overall__explanation">{{ $any(report().overall).explanation }}</p>
+      <p class="overall__disclaimer">
+        This is DepGuard’s heuristic assessment of observable repository signals. It is not a
+        security certification, and a good score does not mean the code is secure.
+      </p>
+    </div>
+  } @else {
+    <div class="overall__unavailable">
+      <h3>No overall score</h3>
+      <p>{{ $any(report().overall).reason }}</p>
+    </div>
+  }
+</section>
+
+<!-- C. Category overview -->
+<section class="categories" aria-labelledby="categories-heading">
+  <h2 class="section__heading" id="categories-heading">Categories</h2>
+  <ul class="categories__grid">
+    @for (card of categoryCards(); track card.category.id) {
+      <li class="category" [class.category--unscored]="card.category.kind === 'insufficient-data'">
+        <h3 class="category__label">{{ card.label }}</h3>
+        @if (isScored(card.category)) {
+          <p class="category__score">
+            {{ card.category.score }}<span class="category__total">/100</span>
+          </p>
+          <dg-coverage-bar [coverage]="card.category.coverage" label="Coverage" />
+          <p class="category__summary">{{ card.category.summary }}</p>
+        } @else {
+          <p class="category__insufficient">Insufficient data</p>
+          <p class="category__summary">{{ card.category.reason }}</p>
+        }
+      </li>
+    }
+  </ul>
+</section>
+
+<!-- D. Critical findings -->
+@if (criticalFindings().length > 0) {
+  <section class="findings" aria-labelledby="findings-heading">
+    <h2 class="section__heading" id="findings-heading">Needs attention first</h2>
+    <ul class="findings__list">
+      @for (finding of criticalFindings(); track finding.title) {
+        <li class="findings__item">
+          <h3 class="findings__title">{{ finding.title }}</h3>
+          <p class="findings__detail">{{ finding.detail }}</p>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+<!-- E. Recommendations -->
+<section class="recommendations" aria-labelledby="recommendations-heading">
+  <h2 class="section__heading" id="recommendations-heading">Recommendations</h2>
+  <dg-recommendation-list [recommendations]="report().recommendations" />
+</section>
+
+<!-- F. Detailed analysis -->
+<section class="detail" aria-labelledby="detail-heading">
+  <h2 class="section__heading" id="detail-heading">Detailed analysis</h2>
+
+  <div class="tabs" role="tablist" aria-label="Detailed analysis sections">
+    @for (tab of tabs; track tab.id) {
+      <button
+        class="tabs__tab"
+        type="button"
+        role="tab"
+        [id]="'tab-' + tab.id"
+        [attr.aria-selected]="activeTab() === tab.id"
+        [attr.aria-controls]="'panel-' + tab.id"
+        [attr.tabindex]="activeTab() === tab.id ? 0 : -1"
+        [class.tabs__tab--active]="activeTab() === tab.id"
+        (click)="setTab(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  <div
+    class="panel"
+    role="tabpanel"
+    [id]="'panel-' + activeTab()"
+    [attr.aria-labelledby]="'tab-' + activeTab()"
+    tabindex="0"
+  >
+    @switch (activeTab()) {
+      @case ('overview') {
+        <dg-analysis-overview
+          [limitations]="report().limitations"
+          [dataSources]="report().dataSources"
+          [schemaVersion]="report().schemaVersion"
+          [generatedAt]="generatedAtLabel()"
+        />
+      }
+
+      @case ('dependencies') {
+        @if (report().dependencyCoverage; as coverage) {
+          <p class="panel__intro">
+            {{ coverage.totalPackages }} dependencies identified.
+            {{ coverage.queryablePackages }} had an exact version that could be checked against
+            vulnerability databases.
+            @if (coverage.rangeVersionsDominant) {
+              Most versions are declared as ranges, which usually means no lockfile is committed.
+            }
+          </p>
+          <dg-dependency-table [rows]="report().dependencies" />
+        } @else {
+          <p class="panel__intro">
+            No dependency inventory is available for this repository. GitHub provides a dependency
+            graph only for repositories with recognised manifest files.
+          </p>
+        }
+      }
+
+      @case ('vulnerabilities') {
+        <dg-vulnerability-list [result]="report().vulnerabilities" />
+      }
+
+      @case ('security') {
+        <dg-check-list [checks]="report().securityChecks" />
+      }
+
+      @case ('maintenance') {
+        <dg-maintenance-panel [signals]="report().maintenance" />
+      }
+
+      @case ('engineering') {
+        <dg-check-list [checks]="report().engineering.checks" />
+      }
+    }
+  </div>
+</section>
