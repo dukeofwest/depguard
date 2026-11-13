@@ -344,7 +344,10 @@ installers, reviewed and recorded in [SECURITY.md](SECURITY.md).
 
 ### 6.8 Tampering in transit, or loss of the published site
 
-**Mitigations.** GitHub Pages serves HTTPS with HSTS and redirects HTTP. Deployment runs
+**Mitigations.** Measured against the live site rather than assumed:
+`http://dukeofwest.github.io/depguard/` returns `301` to the `https://` address, and the
+Pages API reports `https_enforced: true`. There is, however, **no
+`Strict-Transport-Security` response header** — see §7. Deployment runs
 only from `main`, only after lint, typecheck, tests, a runtime audit, the CSP proof and
 the artifact review all pass.
 
@@ -388,12 +391,12 @@ GitHub Pages serves a fixed set of response headers and offers no mechanism to a
 The policy is therefore delivered as a `<meta http-equiv>` tag, which browsers enforce
 identically to a header **with two specification-level exceptions**:
 
-| Directive                   | Status on GitHub Pages                 | Consequence                                                                                                                                                              |
-| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `frame-ancestors`           | **Cannot be set in a meta tag at all** | DepGuard can be framed by any site. Impact is low: there is no authenticated action, no form and no state to clickjack. A framed copy can only mislead about what it is. |
-| `Strict-Transport-Security` | Header only; supplied by GitHub Pages  | Already enforced on `*.github.io`.                                                                                                                                       |
-| `X-Content-Type-Options`    | Header only; not settable              | Low impact; all assets are served with correct types by Pages.                                                                                                           |
-| Report collection           | Needs an endpoint                      | No violation reporting in production. Compensated by `tools/csp-test.mjs` in CI, which proves enforcement before release.                                                |
+| Directive                   | Status on GitHub Pages                    | Consequence                                                                                                                                                                                                                                                                                             |
+| --------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frame-ancestors`           | **Cannot be set in a meta tag at all**    | DepGuard can be framed by any site. Impact is low: there is no authenticated action, no form and no state to clickjack. A framed copy can only mislead about what it is.                                                                                                                                |
+| `Strict-Transport-Security` | Header only; **not sent** by GitHub Pages | Verified absent on the live site. HTTP is answered with a `301` to HTTPS, so the exposure is the narrow first-visit window before that redirect, on a page that carries no credential or cookie. It cannot be closed from here: a static host that sends no custom headers cannot send this one either. |
+| `X-Content-Type-Options`    | Header only; not settable                 | Low impact; all assets are served with correct types by Pages.                                                                                                                                                                                                                                          |
+| Report collection           | Needs an endpoint                         | No violation reporting in production. Compensated by `tools/csp-test.mjs` in CI, which proves enforcement before release.                                                                                                                                                                               |
 
 **Recommended alternative, if header control becomes necessary.** Cloudflare Pages or
 Netlify, both of which support a `_headers` file and would allow `frame-ancestors 'none'`,
@@ -433,17 +436,20 @@ security issue; each is either inherent to the architecture or a deliberate trad
 2. **GitHub controls hosting, TLS and DNS.** Unavoidable for a free static site.
 3. **`frame-ancestors` cannot be set**, so the page can be framed. Low impact on a
    stateless page.
-4. **`style-src 'unsafe-inline'`** is required by Angular's runtime style injection.
-5. **Rate-limit exhaustion by IP neighbours** cannot be prevented without a backend.
-6. **A high score alongside an unassessable security category** can mislead a reader who
+4. **No `Strict-Transport-Security` header.** Verified absent on the live site. A visitor
+   typing `http://` is redirected with a `301`, but that first request leaves the browser
+   unencrypted. Not closable on GitHub Pages, and the page carries nothing secret.
+5. **`style-src 'unsafe-inline'`** is required by Angular's runtime style injection.
+6. **Rate-limit exhaustion by IP neighbours** cannot be prevented without a backend.
+7. **A high score alongside an unassessable security category** can mislead a reader who
    looks only at the headline number. Open question in [ROADMAP.md](ROADMAP.md).
-7. **Advisory reference hosts are not allowlisted**, so a poisoned feed could link to a
+8. **Advisory reference hosts are not allowlisted**, so a poisoned feed could link to a
    phishing page.
-8. **Two moderate build-time advisories** (`glob`, `minimatch`) have no fix that does not
+9. **Two moderate build-time advisories** (`glob`, `minimatch`) have no fix that does not
    require a framework major upgrade or a linter downgrade. Neither package appears in the
    shipped bundle — verified, not assumed. Triage in [SECURITY.md](SECURITY.md).
-9. **Six unverified OSV ecosystems** are queried with a disclosure in the report, mapped
-   from documentation rather than demonstrated against live data.
+10. **Six unverified OSV ecosystems** are queried with a disclosure in the report, mapped
+    from documentation rather than demonstrated against live data.
 
 ## 9. What this assessment is not
 

@@ -142,9 +142,11 @@ reachable. 24 checks, run in CI before every deployment.
 Writing that tool immediately found two defects in a policy that read correctly on paper:
 `base-uri 'none'` blocks the `<base href="/depguard/">` a project page requires, and
 `style-src-attr 'unsafe-inline'` does not cover Angular's runtime-injected styles. Both
-are fixed. Two directives cannot be delivered by a meta tag at all — `frame-ancestors` and
-`Strict-Transport-Security` — and the consequences, with the hosting alternative we
-considered and rejected, are in [THREAT-MODEL.md](THREAT-MODEL.md) §7.
+are fixed. Two things a meta tag cannot deliver: `frame-ancestors`, which is not a valid meta
+directive at all, and `Strict-Transport-Security`, which is a header. The live site was
+checked for the latter and **does not send it** — HTTP is answered with a `301` to HTTPS
+instead. Both consequences, with the hosting alternative we considered and rejected, are
+in [THREAT-MODEL.md](THREAT-MODEL.md) §7.
 
 ## Resource limits
 
