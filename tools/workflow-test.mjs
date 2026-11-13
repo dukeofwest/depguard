@@ -10,11 +10,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
+import { findChrome } from './chrome.mjs';
+import { chromeArguments, findChrome } from './chrome.mjs';
 
 const DIST = path.resolve(process.argv[2] ?? 'dist/depguard/browser');
 const TARGET = process.argv[3] ?? 'expressjs/express';
 const PORT = 8101;
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const CHROME = findChrome();
 
 const types = {
   '.html': 'text/html',

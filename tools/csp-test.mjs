@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
+import { chromeArguments, findChrome } from './chrome.mjs';
 
 const DIST = path.resolve(process.argv[2] ?? 'dist/depguard/browser');
 const PORT = 8098;
@@ -45,18 +46,9 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dg-csp-'));
-const chrome = spawn(
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  [
-    '--headless=new',
-    '--remote-debugging-port=' + DEBUG_PORT,
-    '--user-data-dir=' + profile,
-    '--no-first-run',
-    '--no-default-browser-check',
-    'about:blank',
-  ],
-  { stdio: 'ignore' },
-);
+const chrome = spawn(findChrome(), chromeArguments(DEBUG_PORT, ['--user-data-dir=' + profile]), {
+  stdio: 'ignore',
+});
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let target = null;
@@ -108,7 +100,24 @@ await send('Runtime.enable');
 await send('Log.enable');
 await send('Page.enable');
 await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/depguard/` });
-await sleep(3500);
+
+// Wait for the application to mount, rather than for a fixed number of milliseconds. A
+// CI runner is slower and more variable than a development machine, and a sleep long
+// enough to be safe there is a sleep wasted on every local run. Polling the condition is
+// both faster and not flaky.
+let mounted = false;
+for (let attempt = 0; attempt < 60 && !mounted; attempt++) {
+  await sleep(250);
+  mounted = (await ev('!!document.querySelector("dg-root .shell")')) === true;
+}
+if (!mounted) {
+  console.error('The application did not mount within 15 seconds; aborting.');
+  console.error('Violations reported so far:');
+  for (const violation of [...new Set(violations)]) {
+    console.error('  ' + violation.replace(/\s+/g, ' ').slice(0, 200));
+  }
+  process.exit(1);
+}
 
 const results = [];
 const check = (name, pass, detail) => {

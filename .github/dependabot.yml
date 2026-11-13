@@ -14,16 +14,20 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
-    # Angular's packages move in lockstep; separate PRs for each would never pass CI.
     groups:
+      # Angular's packages move in lockstep, and each Angular major pins a narrow
+      # TypeScript range as a peer dependency - Angular 22 requires ">=6.0 <6.1". So
+      # typescript belongs in this group: separating them produced an Angular 22 pull
+      # request that could not install at all, failing with an ERESOLVE peer conflict
+      # instead of with something a reviewer could act on.
       angular:
         patterns:
           - '@angular/*'
           - '@angular-devkit/*'
           - 'ng-packagr'
-      typescript-and-lint:
-        patterns:
           - 'typescript'
+      lint-and-format:
+        patterns:
           - 'typescript-eslint'
           - 'eslint*'
           - '@eslint/*'

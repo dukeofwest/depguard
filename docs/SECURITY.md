@@ -199,10 +199,15 @@ distinct problems.
 Arbitrary file read and execution when the Vitest UI server is listening. This project
 never runs the UI server, so the finding was not reachable here — and it was fixed anyway,
 because "it cannot be reached from here" is an argument that holds until the day it does
-not. The fix required `vitest@4.1.12`, which exposed an unrelated bug in npm 10.9.x
-(`Cannot read properties of null (reading 'edgesOut')` during resolution). npm 11 resolves
-the tree correctly, so CI pins `npm@11.21.2` before `npm ci`. Both workflows carry a
-comment explaining why, so the pin is not mistaken for an accident.
+not. The fix required `vitest@4.1.12`, which exposed an unrelated bug in npm 10.9.x:
+`Cannot read properties of null (reading 'edgesOut')`.
+
+CI initially worked around that by installing npm 11 globally first. That turned out to be
+unnecessary, and the workaround was removed. The npm bug is in dependency **resolution**,
+which only `npm install` performs; `npm ci` reads the committed lockfile, and was verified
+to install this tree correctly with the npm 10.9.9 that Node 22 bundles. Removing the
+global install also removed the only package in the pipeline that no lockfile covered —
+which is what Zizmor's `adhoc-packages` audit had flagged.
 
 **Accepted — `glob`, moderate, [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).**
 AbortSignal cancellation bypass allowing post-timeout filesystem traversal. Reached only
@@ -244,13 +249,19 @@ tooling, none present in the shipped bundle:
 Every action is pinned to a **full commit SHA** with a comment naming the release, because
 a tag is mutable by whoever owns the action:
 
-| Action                          | Version | SHA                                        |
-| ------------------------------- | ------- | ------------------------------------------ |
-| `actions/checkout`              | v4.4.0  | `11d5960a326750d5838078e36cf38b85af677262` |
-| `actions/setup-node`            | v4.4.0  | `49933ea5288caeca8642d1e84afbd3f7d6820020` |
-| `actions/configure-pages`       | v5.0.0  | `983d7736d9b0ae728b81ab479565c72886d7745b` |
-| `actions/upload-pages-artifact` | v4.0.0  | `7b1f4a764d45c48632c6b24a0339c27f5614fb0b` |
-| `actions/deploy-pages`          | v4.0.5  | `d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e` |
+The workflows themselves are the record; see
+[`ci.yml`](../.github/workflows/ci.yml) and
+[`deploy.yml`](../.github/workflows/deploy.yml). Five actions are pinned:
+`actions/checkout`, `actions/setup-node`, `actions/configure-pages`,
+`actions/upload-pages-artifact` and `actions/deploy-pages`.
+
+This document deliberately does **not** list the SHAs. It used to, and
+`tools/check-docs.cjs` enforced the match — which meant every Dependabot action bump
+failed CI until someone hand-edited a table here. A check that makes the correct action
+fail is a check people learn to ignore, so what is enforced now is the property that
+matters and is local to the workflow: **every action is pinned to a full 40-character
+commit SHA and carries a version comment.** An unpinned action, or a SHA with no comment
+saying what it is, fails the build.
 
 Each SHA was resolved from the action's own release tags, not copied from documentation.
 Dependabot understands a SHA pin with a version comment and updates both together, so

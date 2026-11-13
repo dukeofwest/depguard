@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
+import { chromeArguments, findChrome } from './chrome.mjs';
 
 const DIST = path.resolve(process.argv[2]);
 const PORT = 8099;
@@ -31,18 +32,9 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dg-smoke-'));
-const chrome = spawn(
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  [
-    '--headless=new',
-    '--remote-debugging-port=9224',
-    '--user-data-dir=' + profile,
-    '--no-first-run',
-    '--no-default-browser-check',
-    'about:blank',
-  ],
-  { stdio: 'ignore' },
-);
+const chrome = spawn(findChrome(), chromeArguments(9224, ['--user-data-dir=' + profile]), {
+  stdio: 'ignore',
+});
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let t = null;

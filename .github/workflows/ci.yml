@@ -10,6 +10,13 @@ on:
 permissions:
   contents: read
 
+# One run per ref. A second push supersedes the first instead of running alongside it,
+# which stops a push-twice from occupying every runner and keeps the reported status
+# attached to the newest commit. Flagged by Zizmor's concurrency-limits audit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     name: Lint, test and build
@@ -37,13 +44,15 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Node 22 bundles npm 10.9.x, whose dependency resolver fails on this tree with
-      # "Cannot read properties of null (reading 'edgesOut')" - an npm bug, reproduced
-      # locally and documented in docs/SECURITY.md. npm 11 resolves it. Pinned exactly so
-      # the toolchain is reproducible rather than whatever npm 11 happens to be today.
-      - name: Pin npm
-        run: npm install -g npm@11.21.2
-
+      # `npm ci` only, never `npm install`. It installs exactly what the lockfile pins and
+      # verifies each package against its integrity hash.
+      #
+      # An earlier version of this workflow installed npm 11 globally first, because
+      # npm 10.9.x's resolver fails on this tree with "Cannot read properties of null
+      # (reading 'edgesOut')". That turned out to be unnecessary: the bug is in dependency
+      # *resolution*, which only `npm install` performs. `npm ci` reads the committed
+      # lockfile and was verified to work with the bundled npm 10.9.9. Removing the global
+      # install also removed the one package in this pipeline that no lockfile covered.
       - name: Install dependencies
         run: npm ci
 
@@ -74,6 +83,7 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     permissions:
+      # Read the source to test it. This job publishes nothing and needs no write scope.
       contents: read
 
     steps:
@@ -85,9 +95,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-
-      - name: Pin npm
-        run: npm install -g npm@11.21.2
 
       - name: Install dependencies
         run: npm ci
@@ -122,6 +129,7 @@ jobs:
     name: Workflow security (Zizmor)
     runs-on: ubuntu-latest
     permissions:
+      # Read the source to test it. This job publishes nothing and needs no write scope.
       contents: read
 
     steps:

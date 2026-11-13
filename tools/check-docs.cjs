@@ -187,12 +187,19 @@ for (const name of fs.readdirSync(workflowDir)) {
       continue;
     }
     actionPins.set(action, version);
-    if (!securityDoc.includes(version)) {
-      fail(`docs/SECURITY.md does not record the pinned SHA for ${action}`);
+
+    // A pin must carry a version comment, so a reader can tell what the SHA is without
+    // resolving it. This is checked locally rather than against the documentation on
+    // purpose: an earlier version of this check required every SHA to be listed in
+    // docs/SECURITY.md, which meant every Dependabot action bump failed CI until someone
+    // hand-edited a table. A check that makes the correct action fail trains people to
+    // ignore it, so the documentation now points at the workflows instead of copying them.
+    if (use[2] === undefined || !/^v?\d/.test(use[2])) {
+      fail(`${name} pins ${action} to a SHA with no version comment`);
     }
   }
 }
-console.log(`  ${actionPins.size} action(s) pinned to a full SHA and documented`);
+console.log(`  ${actionPins.size} action(s) pinned to a full SHA with a version comment`);
 
 // Credentials must not be left in the checkout for later steps to read.
 for (const name of fs.readdirSync(workflowDir)) {

@@ -23,6 +23,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     permissions:
+      # Read the source in order to build it. This job does not publish.
       contents: read
 
     steps:
@@ -38,10 +39,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      # See the note in ci.yml: npm 10.9.x cannot resolve this tree.
-      - name: Pin npm
-        run: npm install -g npm@11.21.2
-
+      # See the note in ci.yml: `npm ci` installs from the committed lockfile and verifies
+      # integrity hashes, so no global npm install is needed.
       - name: Install dependencies
         run: npm ci
 
@@ -86,7 +85,11 @@ jobs:
     # The only job in the repository with write access to anything, and it runs no
     # repository code: it publishes the artifact the build job produced and nothing else.
     permissions:
+      # Publish the artifact the build job produced. This is the only write scope granted
+      # anywhere in this repository.
       pages: write
+      # Mint the OIDC token actions/deploy-pages exchanges for a deployment credential,
+      # which is what removes the need for a long-lived secret.
       id-token: write
     environment:
       name: github-pages
