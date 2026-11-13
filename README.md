@@ -2,70 +2,153 @@
 
 **Know the health of any GitHub repository.**
 
+[![CI](https://github.com/dukeofwest/depguard/actions/workflows/ci.yml/badge.svg)](https://github.com/dukeofwest/depguard/actions/workflows/ci.yml)
+[![Deploy](https://github.com/dukeofwest/depguard/actions/workflows/deploy.yml/badge.svg)](https://github.com/dukeofwest/depguard/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 DepGuard analyses a public GitHub repository and produces one evidence-backed report
 covering its dependencies, security configuration, maintenance activity and engineering
-signals.
+signals. No account, no token, nothing stored — the analysis runs entirely in your
+browser.
 
-> **Status: in development.** Phases 0–4 are complete: the analysis engine and both API
-> integrations work end to end and are verified against live GitHub and OSV data. The user
-> interface is not built yet (Phase 5), so the application currently renders its shell
-> only. This README is completed in Phase 7 and claims no feature that is not built.
+**Live:** https://dukeofwest.github.io/depguard/
+
+![DepGuard analysing expressjs/express](docs/screenshots/dashboard.png)
 
 ---
 
-## What it does
+## The problem
 
-Given a repository URL, DepGuard reports five categories:
+Deciding whether to depend on a repository means opening a dozen tabs: the commit history,
+the releases page, the security tab, the dependency graph, whether there is a lockfile, a
+licence, any tests. Each answers a fragment. None of them tells you how much you actually
+managed to find out.
 
-| Category                   | What it examines                                          |
-| -------------------------- | --------------------------------------------------------- |
-| **Dependency Security**    | Known advisories affecting resolved dependency versions   |
-| **Dependency Health**      | Inventory completeness, ecosystems, metadata quality      |
-| **Security Configuration** | Security policy, Dependabot config, CodeQL workflow, CI   |
-| **Maintenance & Activity** | Commit and release recency, archived status, contributors |
-| **Engineering Quality**    | Documentation, test configuration, CI/CD, licensing       |
+DepGuard consolidates those signals into one report — and, unusually, tells you how much
+of the intended analysis it was able to complete.
 
-It is **not** a replacement for Dependabot, CodeQL, Snyk, Socket, OSV-Scanner or Trivy. It
-consolidates observable repository signals and is explicit about what it cannot verify.
+## What makes it different
 
-## Honesty by design
+Most scanners present a clean result and a green badge. DepGuard is built around the cases
+where it _cannot_ tell you something.
 
-Phase 0 measured the limits of this approach against live APIs before any code was
-written, and three findings shaped the product:
+**A repository with no committed lockfile cannot report "no vulnerabilities found."**
+GitHub reports dependency versions as the manifest declares them, so without a lockfile
+they are ranges (`^1.2.1`) rather than resolved versions — and a range cannot be matched
+against an advisory database. Measured across real repositories:
 
-- **Vulnerability coverage depends on lockfiles.** GitHub's SBOM reports versions as
-  declared. Without a committed lockfile, those are ranges (`^1.2.1`), not resolved
-  versions. OSV silently returns _wrong_ results for a range, so DepGuard queries only
-  exact versions. Measured coverage ranged from 84.9% (`npm/cli`) to **0%**
-  (`request/request`). Below 50%, the category reports _insufficient data_ rather than a
-  misleading clean result.
-- **Unknown is never "safe".** PYSEC advisories carry no severity at all (22 of 22
-  measured), so `Unknown` is a real severity, excluded from scoring rather than treated as
-  low risk.
-- **Missing data is not a zero.** A category that cannot be measured is excluded and its
-  weight redistributed, so a score is never inflated or deflated by absence.
+| Repository          | Dependencies checkable | Lockfile |
+| ------------------- | ---------------------: | -------- |
+| `npm/cli`           |                  84.9% | Yes      |
+| `expressjs/express` |                  15.1% | No       |
+| `request/request`   |                 **0%** | No       |
 
-Full evidence: [`docs/phase-0/FEASIBILITY-REPORT.md`](docs/phase-0/FEASIBILITY-REPORT.md).
+Where fewer than half can be checked, DepGuard reports **insufficient data** and says
+plainly that this is _not evidence the dependencies are safe_. It also recommends the fix:
+commit a lockfile.
+
+![Dependency security reporting insufficient data](docs/screenshots/vulnerabilities.png)
+
+**Every score carries its coverage.** A score of 92 at 70% coverage is a different claim
+from 92 at 100%, and the interface never lets the two look alike.
+
+**"Unknown" is never "fine".** A check that could not be performed is excluded from
+scoring and reduces coverage — it is neither a zero nor a pass. The types enforce this: a
+category that could not be assessed has no `score` field at all.
+
+## The five categories
+
+| Category                     | What it examines                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| **Dependency Security**      | Known advisories affecting resolved dependency versions, via OSV.dev                    |
+| **Dependency Health**        | Inventory size, ecosystems, and how much carries usable version metadata                |
+| **Security Configuration**   | Security policy, Dependabot config, CodeQL and dependency review workflows, CI, licence |
+| **Maintenance and Activity** | Commit and release recency, contributors, archived status                               |
+| **Engineering Quality**      | Documentation, test configuration, CI/CD, project metadata                              |
+
+The dependency inventory distinguishes _checked and clean_ from _never checked_, and both
+are filterable:
+
+![Dependency inventory with the Checked column](docs/screenshots/dependencies.png)
+
+DepGuard is **not** a replacement for Dependabot, CodeQL, Snyk, Socket, OSV-Scanner or
+Trivy. It does not read or execute source code, so it cannot find vulnerabilities in the
+repository's own code — only in what it declares.
+
+## How it works
+
+```
+URL ──► validated in-browser ──► GitHub REST (8 requests)
+                                      │
+                                      ├─► repository metadata, file tree, workflows,
+                                      │   releases, contributors, languages, activity
+                                      └─► dependency graph SBOM (SPDX 2.3)
+                                              │
+                                   pure TypeScript engine
+                                   parse · classify versions · triage
+                                              │
+                                      OSV.dev (batched)
+                                              │
+                                   dedupe on CVE · read severity
+                                   score · cover · recommend
+```
+
+Everything happens in the browser. There is no backend, and no proxy — a conclusion
+reached by testing, not preference. The GitHub SBOM endpoint turned out to respond
+synchronously with permissive CORS, verified in real headless Chrome from the production
+origin with a negative control proving CORS was genuinely being enforced. See the
+[browser CORS proof](docs/phase-0/BROWSER-CORS-PROOF.md).
 
 ## Privacy
 
 Analysis runs entirely in your browser. DepGuard contacts exactly three hosts —
 `api.github.com`, `raw.githubusercontent.com` and `api.osv.dev` — and never follows a URL
-found inside repository content. There are no accounts, no tokens and no storage: the MVP
-analyses public repositories anonymously, so there is no credential to leak.
+found inside repository content.
 
-Anonymous GitHub access is limited to **60 requests per hour per IP**. A scan costs about
-9, so expect roughly 6 scans per hour. The UI shows the remaining budget.
+Nothing is stored: no `localStorage`, no cookies, no analytics, no telemetry. There are no
+accounts and no tokens, so there is no credential to leak. Results live in memory for the
+session and are gone on reload.
 
-## Tech stack
+Full detail in [docs/PRIVACY.md](docs/PRIVACY.md).
+
+### Rate limits
+
+Anonymous GitHub access allows **60 requests per hour per IP address**. An analysis costs
+8, so roughly 7 scans per hour. The remaining budget is shown in the header at all times,
+and a scan will not start when too few remain — so it cannot fail halfway through.
+
+## Technology
 
 Angular 21 (standalone, zoneless, signals) · strict TypeScript · native CSS with design
-tokens · Vitest. No Nx, no NgModules, no UI component framework, and no runtime
-dependencies beyond Angular and RxJS.
+tokens · Vitest.
+
+No Nx, no NgModules, no UI component framework. Runtime dependencies are Angular, RxJS and
+tslib — nothing else. No semver library (ranges are rejected, not resolved), no YAML
+parser, and no Web Worker: the largest real SBOM (1.1 MB, 1,208 packages) parses in
+**2.8 ms** on the main thread.
 
 The analysis logic lives in [`src/app/engine/`](src/app/engine/) as pure TypeScript with no
-Angular, DOM or I/O dependencies. That boundary is enforced by both ESLint and a unit test
-([`engine-purity.spec.ts`](src/app/engine/engine-purity.spec.ts)), so a violation fails CI.
+Angular, DOM, I/O or clock access, so identical input always produces an identical report.
+That boundary is enforced by **both** an ESLint rule and a unit test — it has caught three
+real violations that review missed.
+
+## Documentation
+
+| Document                                      | Contents                                                   |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)       | Layers, the engine boundary, state and cancellation        |
+| [SCORING.md](docs/SCORING.md)                 | Weights, coverage floors, deductions, worked examples      |
+| [DATA-SOURCES.md](docs/DATA-SOURCES.md)       | Every endpoint, why it is needed, and its quota cost       |
+| [API-LIMITATIONS.md](docs/API-LIMITATIONS.md) | What DepGuard cannot determine, and why                    |
+| [PRIVACY.md](docs/PRIVACY.md)                 | What is sent, to whom, and what is stored                  |
+| [SECURITY.md](docs/SECURITY.md)               | Threat model, review findings, accepted risks              |
+| [ROADMAP.md](docs/ROADMAP.md)                 | Open questions and what is deliberately deferred           |
+| [adr/](docs/adr/)                             | Eight architecture decision records                        |
+| [phase-0/](docs/phase-0/)                     | The feasibility report, with reproducible evidence scripts |
+
+The Phase 0 report is worth reading if you want to know why the product works the way it
+does: every significant decision was made against measurements from live APIs, including
+one that disproved the specification's own premise.
 
 ## Local development
 
@@ -73,17 +156,24 @@ Requires Node 20.19+, 22.12+ or 24+.
 
 ```bash
 npm install
-npm start            # dev server at http://localhost:4200
+npm start            # http://localhost:4200
 ```
+
+On Windows PowerShell, use `npm.cmd` if the execution policy blocks `npm.ps1`.
 
 ### Verification
 
 ```bash
-npm run lint         # ESLint, including the engine purity rules
+npm run lint         # ESLint, including engine purity rules
 npm run typecheck    # strict tsc, including noUncheckedIndexedAccess
-npm test             # Vitest, watch mode
-npm run test:ci      # single run
-npm run format       # Prettier
+npm run test:ci      # 224 tests
+npm run format:check
+```
+
+Opt-in live tests against the real APIs, which spend the hourly quota:
+
+```bash
+DEPGUARD_LIVE=1 npm run test:ci
 ```
 
 ### Build
@@ -93,27 +183,34 @@ npm run build                                  # production
 npm run build -- --configuration github-pages  # adds base href /depguard/
 ```
 
-The `github-pages` configuration is what CI deploys; it sets the base href to match the
-project-page URL.
+### Browser tools
 
-### Smoke test
-
-[`tools/smoke-test.mjs`](tools/smoke-test.mjs) loads a built bundle in headless Chrome and
-reports console errors, rendered content and mobile layout overflow:
+Driven by headless Chrome via the DevTools Protocol:
 
 ```bash
-npm run build -- --configuration github-pages
-node tools/smoke-test.mjs dist/depguard/browser
+node tools/a11y-test.mjs      dist/depguard/browser   # contrast, keyboard, semantics
+node tools/smoke-test.mjs     dist/depguard/browser   # render check, console errors
+node tools/workflow-test.mjs  dist/depguard/browser   # full journey (uses API quota)
+node tools/screenshot.mjs     dist/depguard/browser docs/screenshots
 ```
 
-## Documentation
+The accessibility tool probes all 49 token/surface colour combinations through the real
+cascade and exits non-zero on a regression. It found 11 WCAG AA failures in the original
+palette.
 
-- [Phase 0 feasibility report](docs/phase-0/FEASIBILITY-REPORT.md) — API matrix, SBOM and
-  OSV findings, scoring model, risks
-- [Browser CORS proof](docs/phase-0/BROWSER-CORS-PROOF.md) — the architectural risk,
-  tested in a real browser
-- [Architecture decision records](docs/adr/)
+## Deployment
+
+Pushing to `main` builds and publishes to GitHub Pages via
+[`deploy.yml`](.github/workflows/deploy.yml), which runs lint, typecheck and tests first.
+The `github-pages` build configuration sets the base href to `/depguard/`.
+
+Requires Pages to be enabled for the repository with **GitHub Actions** as the source.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). The one rule that matters: a report must never
+claim more than the evidence supports.
 
 ## Licence
 
-MIT
+MIT — see [LICENSE](LICENSE).

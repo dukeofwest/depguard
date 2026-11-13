@@ -28,15 +28,15 @@ import type { RepositoryMetadata } from '../../core/models/repository.model';
         <dl class="repo__stats">
           <div>
             <dt>Stars</dt>
-            <dd>{{ repository().stars.toLocaleString() }}</dd>
+            <dd>{{ count(repository().stars) }}</dd>
           </div>
           <div>
             <dt>Forks</dt>
-            <dd>{{ repository().forks.toLocaleString() }}</dd>
+            <dd>{{ count(repository().forks) }}</dd>
           </div>
           <div>
             <dt>Open issues</dt>
-            <dd>{{ repository().openIssues.toLocaleString() }}</dd>
+            <dd>{{ count(repository().openIssues) }}</dd>
           </div>
           <div>
             <dt>Branch</dt>
@@ -180,6 +180,17 @@ export class RepositoryHeaderComponent {
 
   readonly newScan = output<void>();
   readonly exportJson = output<void>();
+
+  /**
+   * Formats a count for an English-language page.
+   *
+   * `toLocaleString()` with no locale uses the *browser's* locale, which renders 69,679
+   * as "69.679" on a German system — indistinguishable from a decimal in an otherwise
+   * English interface. The document is `lang="en"`, so the numbers in it are too.
+   */
+  protected count(value: number): string {
+    return new Intl.NumberFormat('en-GB').format(value);
+  }
 
   protected pushedAt(): string {
     const value = this.repository().pushedAt;

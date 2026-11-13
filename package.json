@@ -11,7 +11,8 @@
     "lint": "ng lint",
     "typecheck": "tsc -b --pretty",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:docs": "node tools/check-docs.cjs ."
   },
   "private": true,
   "packageManager": "npm@10.9.9",
@@ -37,5 +38,23 @@
     "vitest": "4.0.8"
   },
   "description": "GitHub repository health analyzer: dependencies, security configuration, maintenance and engineering signals in one report.",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dukeofwest/depguard.git"
+  },
+  "homepage": "https://dukeofwest.github.io/depguard/",
+  "bugs": {
+    "url": "https://github.com/dukeofwest/depguard/issues"
+  },
+  "keywords": [
+    "github",
+    "security",
+    "dependencies",
+    "sbom",
+    "osv",
+    "vulnerability",
+    "repository-health",
+    "angular"
+  ]
 }

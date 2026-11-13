@@ -134,6 +134,19 @@ describe('DashboardComponent', () => {
       expect(text(element)).toContain('not a security certification');
     });
 
+    it('formats counts for an English page regardless of machine locale', () => {
+      // Caught by looking at a screenshot: toLocaleString() with no locale rendered
+      // 69,679 as "69.679" on a German system, which reads as a decimal.
+      const report = reportFor(expressSbom, {
+        kind: 'completed',
+        findings: [],
+        packagesChecked: 8,
+      });
+      const element = render(report);
+      expect(element.textContent ?? '').toContain('69,675');
+      expect(element.textContent ?? '').not.toContain('69.675');
+    });
+
     it('renders all five category cards', () => {
       const report = reportFor(expressSbom, {
         kind: 'completed',

@@ -35,5 +35,10 @@ jobs:
       - name: Unit tests
         run: npm run test:ci
 
+      # Fails if a documentation link breaks, or if the scoring weights, deductions,
+      # request budget or host allowlist quoted in the docs stop matching the code.
+      - name: Documentation check
+        run: npm run check:docs
+
       - name: Production build
         run: npm run build -- --configuration github-pages
