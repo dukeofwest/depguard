@@ -1,0 +1,6 @@
+dist
+node_modules
+.angular
+out-tsc
+package-lock.json
+docs/phase-0/evidence/browser/results.json

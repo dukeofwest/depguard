@@ -1,0 +1,9 @@
+# Normalise line endings to LF in the repository. CI runs on Linux, and without this
+# Windows checkouts commit CRLF, producing whole-file diffs between contributors.
+* text=auto eol=lf
+
+# Binary files must never be normalised.
+*.ico binary
+*.png binary
+*.jpg binary
+*.woff2 binary

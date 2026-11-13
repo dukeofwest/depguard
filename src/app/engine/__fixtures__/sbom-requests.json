@@ -1,0 +1,587 @@
+{
+  "sbom": {
+    "spdxVersion": "SPDX-2.3",
+    "dataLicense": "CC0-1.0",
+    "SPDXID": "SPDXRef-DOCUMENT",
+    "name": "com.github.psf/requests",
+    "documentNamespace": "https://spdx.org/spdxdocs/protobom/2711a814-08c6-41d5-83f4-93ac8f65884c",
+    "comment": "Exact versions could not be resolved for some packages. For more information: https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-the-dependency-graph#dependencies-included.",
+    "creationInfo": {
+      "creators": [
+        "Tool: protobom-v0.0.0-20261112233033-bae921b1cfe8+dirty",
+        "Tool: GitHub.com-Dependency-Graph",
+        "Tool: dependabot"
+      ],
+      "created": "2026-11-13T07:22:50Z"
+    },
+    "packages": [
+      {
+        "name": "setuptools",
+        "SPDXID": "SPDXRef-pypi-setuptools-1a783b",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/setuptools"
+          }
+        ]
+      },
+      {
+        "name": "trustme",
+        "SPDXID": "SPDXRef-pypi-trustme-285164",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/trustme"
+          }
+        ]
+      },
+      {
+        "name": "httpbin",
+        "SPDXID": "SPDXRef-pypi-httpbin-d6e929",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/httpbin"
+          }
+        ]
+      },
+      {
+        "name": "wheel",
+        "SPDXID": "SPDXRef-pypi-wheel-0b3e5c",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/wheel"
+          }
+        ]
+      },
+      {
+        "name": "urllib3",
+        "SPDXID": "SPDXRef-pypi-urllib3-a1e416",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/urllib3"
+          }
+        ]
+      },
+      {
+        "name": "certifi",
+        "SPDXID": "SPDXRef-pypi-certifi-2f188f",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/certifi"
+          }
+        ]
+      },
+      {
+        "name": "charset-normalizer",
+        "SPDXID": "SPDXRef-pypi-charset-normalizer-6ddf47",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/charset-normalizer"
+          }
+        ]
+      },
+      {
+        "name": "chardet",
+        "SPDXID": "SPDXRef-pypi-chardet-288059",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/chardet"
+          }
+        ]
+      },
+      {
+        "name": "pytest",
+        "SPDXID": "SPDXRef-pypi-pytest-3039dc",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/pytest"
+          }
+        ]
+      },
+      {
+        "name": "idna",
+        "SPDXID": "SPDXRef-pypi-idna-7f34cd",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/idna"
+          }
+        ]
+      },
+      {
+        "name": "sphinx",
+        "SPDXID": "SPDXRef-pypi-sphinx-7.2.6-33245f",
+        "versionInfo": "7.2.6",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "licenseConcluded": "BSD-2-Clause AND BSD-3-Clause",
+        "copyrightText": "(c) Copyright 2006, (c) Copyright 2006-2009, Alice, (c) Copyright 2006. (c) Copyright 2006-2009, Alice, (c) Copyright 2010, (c) Copyright 2010-2013, Bob, (c) Copyright 2014, (c) Copyright 2014-2017, Charlie, (c) Copyright 2018, (c) Copyright 2018-2021, David, (c) Copyright 2022, (c) Copyright 2022-2025, Eve, Copr Buildsystem <https://docs.pagure.org/copr.copr/> (customized) Coreboot <https://doc.coreboot.org/> Chainer <https://docs.chainer.org/>, Copyright (c) 2007-2023 by the Sphinx team (see AUTHORS file), Copyright (c) 2008 Stefan van der Walt <stefan@mentat.za.net> , Pauli Virtanen <pav@iki.fi>, Copyright (c) 2010, Georg Brandl & Team, Copyright (c) 2012, foof, Copyright (c) 2013, Copyright (c) 2013, foo, Copyright (c) 2013, sphinx, Copyright (c) 2015, dev, Copyright (c) 2018, dev, Copyright (c) 2023 ORGANIZATION, copyright 2006-2009, copyright 2006', 2006-2009, Copyright 2007-2022 by the Sphinx team, Copyright 2007-2023 by Sphinx team, copyright 2007-2023 by the Sphinx team, Copyright 2007-2023 by the Sphinx team, Copyright 2008 Societe des arts technologiques (SAT), https://sat.qc.ca, Copyright 2008-2009, Haiku, copyright 2016, test, Copyright Arriskua Zaharkitua, Copyright Danger Deprecated, Copyright Error General Index, copyright f'2007- time.strftime Y , the Sphinx developers, Copyright Fare Foreldet, Copyright Gefahr Veraltet, Copyright Pericolo Deprecato, Copyright Perigo Obsoleto, Copyright Risk Ersatt",
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/sphinx@7.2.6"
+          }
+        ]
+      },
+      {
+        "name": "pytest-cov",
+        "SPDXID": "SPDXRef-pypi-pytest-cov-229fb4",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/pytest-cov"
+          }
+        ]
+      },
+      {
+        "name": "pysocks",
+        "SPDXID": "SPDXRef-pypi-pysocks-d1f0ba",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/pysocks"
+          }
+        ]
+      },
+      {
+        "name": "pytest-httpbin",
+        "SPDXID": "SPDXRef-pypi-pytest-httpbin-2.1.0-902a20",
+        "versionInfo": "2.1.0",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "licenseConcluded": "MIT",
+        "copyrightText": "Copyright (c) 2014-2019 Kevin McCarthy, Copyright (c) 2014-2023 Kevin McCarthy",
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/pytest-httpbin@2.1.0"
+          }
+        ]
+      },
+      {
+        "name": "actions/setup-python",
+        "SPDXID": "SPDXRef-githubactions-actions-setup-python-5fda3b95a4ea91299a34e894583c3862153e4b97-42919c",
+        "versionInfo": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
+          }
+        ]
+      },
+      {
+        "name": "dessant/lock-threads",
+        "SPDXID": "SPDXRef-githubactions-dessant-lock-threads-89ae32b08ed1a541efecbab17912962a5e38981c-f3dbd7",
+        "versionInfo": "89ae32b08ed1a541efecbab17912962a5e38981c",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/dessant/lock-threads@89ae32b08ed1a541efecbab17912962a5e38981c"
+          }
+        ]
+      },
+      {
+        "name": "pypa/gh-action-pypi-publish",
+        "SPDXID": "SPDXRef-githubactions-pypa-gh-action-pypi-publish-cef221092ed1bacb1cc03d23a2d87d1d172e277b-3863e2",
+        "versionInfo": "cef221092ed1bacb1cc03d23a2d87d1d172e277b",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b"
+          }
+        ]
+      },
+      {
+        "name": "actions/download-artifact",
+        "SPDXID": "SPDXRef-githubactions-actions-download-artifact-70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3-9f2563",
+        "versionInfo": "70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3"
+          }
+        ]
+      },
+      {
+        "name": "actions/upload-artifact",
+        "SPDXID": "SPDXRef-githubactions-actions-upload-artifact-bbbca2ddaa5d8feaa63e36b76fdaad77386f024f-353cee",
+        "versionInfo": "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+          }
+        ]
+      },
+      {
+        "name": "zizmorcore/zizmor-action",
+        "SPDXID": "SPDXRef-githubactions-zizmorcore-zizmor-action-85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e-4d2b66",
+        "versionInfo": "85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e"
+          }
+        ]
+      },
+      {
+        "name": "sphinx",
+        "SPDXID": "SPDXRef-pypi-sphinx-7.2.6-a11a04",
+        "versionInfo": "7.2.6",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "licenseConcluded": "BSD-2-Clause AND BSD-3-Clause",
+        "copyrightText": "(c) Copyright 2006, (c) Copyright 2006-2009, Alice, (c) Copyright 2006. (c) Copyright 2006-2009, Alice, (c) Copyright 2010, (c) Copyright 2010-2013, Bob, (c) Copyright 2014, (c) Copyright 2014-2017, Charlie, (c) Copyright 2018, (c) Copyright 2018-2021, David, (c) Copyright 2022, (c) Copyright 2022-2025, Eve, Copr Buildsystem <https://docs.pagure.org/copr.copr/> (customized) Coreboot <https://doc.coreboot.org/> Chainer <https://docs.chainer.org/>, Copyright (c) 2007-2023 by the Sphinx team (see AUTHORS file), Copyright (c) 2008 Stefan van der Walt <stefan@mentat.za.net> , Pauli Virtanen <pav@iki.fi>, Copyright (c) 2010, Georg Brandl & Team, Copyright (c) 2012, foof, Copyright (c) 2013, Copyright (c) 2013, foo, Copyright (c) 2013, sphinx, Copyright (c) 2015, dev, Copyright (c) 2018, dev, Copyright (c) 2023 ORGANIZATION, copyright 2006-2009, copyright 2006', 2006-2009, Copyright 2007-2022 by the Sphinx team, Copyright 2007-2023 by Sphinx team, copyright 2007-2023 by the Sphinx team, Copyright 2007-2023 by the Sphinx team, Copyright 2008 Societe des arts technologiques (SAT), https://sat.qc.ca, Copyright 2008-2009, Haiku, copyright 2016, test, Copyright Arriskua Zaharkitua, Copyright Danger Deprecated, Copyright Error General Index, copyright f'2007- time.strftime Y , the Sphinx developers, Copyright Fare Foreldet, Copyright Gefahr Veraltet, Copyright Pericolo Deprecato, Copyright Perigo Obsoleto, Copyright Risk Ersatt",
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/sphinx@7.2.6"
+          }
+        ]
+      },
+      {
+        "name": "urllib3",
+        "SPDXID": "SPDXRef-pypi-urllib3-bc396c",
+        "versionInfo": ">= 1.26,< 3",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/urllib3"
+          }
+        ]
+      },
+      {
+        "name": "charset-normalizer",
+        "SPDXID": "SPDXRef-pypi-charset-normalizer-847ca3",
+        "versionInfo": ">= 2,< 4",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/charset-normalizer"
+          }
+        ]
+      },
+      {
+        "name": "certifi",
+        "SPDXID": "SPDXRef-pypi-certifi-8d7047",
+        "versionInfo": ">= 2023.5.7",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/certifi"
+          }
+        ]
+      },
+      {
+        "name": "idna",
+        "SPDXID": "SPDXRef-pypi-idna-f453cd",
+        "versionInfo": ">= 2.5,< 4",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:pypi/idna"
+          }
+        ]
+      },
+      {
+        "name": "actions/checkout",
+        "SPDXID": "SPDXRef-githubactions-actions-checkout-9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0-a76c9f",
+        "versionInfo": "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+          }
+        ]
+      },
+      {
+        "name": "github/codeql-action/init",
+        "SPDXID": "SPDXRef-githubactions-githubcodeql-action-init-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee-3f12f8",
+        "versionInfo": "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"
+          }
+        ]
+      },
+      {
+        "name": "github/codeql-action/analyze",
+        "SPDXID": "SPDXRef-githubactions-githubcodeql-action-analyze-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee-c95396",
+        "versionInfo": "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"
+          }
+        ]
+      },
+      {
+        "name": "github/codeql-action/autobuild",
+        "SPDXID": "SPDXRef-githubactions-githubcodeql-action-autobuild-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee-e5510f",
+        "versionInfo": "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee",
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": false,
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:githubactions/github/codeql-action/autobuild@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"
+          }
+        ]
+      },
+      {
+        "name": "com.github.psf/requests",
+        "SPDXID": "SPDXRef-github-psf-requests-main-d65a21",
+        "versionInfo": "main",
+        "downloadLocation": "git+https://github.com/psf/requests",
+        "filesAnalyzed": false,
+        "licenseDeclared": "Apache-2.0",
+        "externalRefs": [
+          {
+            "referenceCategory": "PACKAGE-MANAGER",
+            "referenceType": "purl",
+            "referenceLocator": "pkg:github/psf/requests@main"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-setuptools-1a783b",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-trustme-285164",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-httpbin-d6e929",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-wheel-0b3e5c",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-urllib3-a1e416",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-certifi-2f188f",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-charset-normalizer-6ddf47",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-chardet-288059",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-pytest-3039dc",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-idna-7f34cd",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-sphinx-7.2.6-33245f",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-pytest-cov-229fb4",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-pysocks-d1f0ba",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-pytest-httpbin-2.1.0-902a20",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-dessant-lock-threads-89ae32b08ed1a541efecbab17912962a5e38981c-f3dbd7",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-zizmorcore-zizmor-action-85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e-4d2b66",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-urllib3-bc396c",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-charset-normalizer-847ca3",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-pypa-gh-action-pypi-publish-cef221092ed1bacb1cc03d23a2d87d1d172e277b-3863e2",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-sphinx-7.2.6-a11a04",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-idna-f453cd",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-actions-download-artifact-70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3-9f2563",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-actions-upload-artifact-bbbca2ddaa5d8feaa63e36b76fdaad77386f024f-353cee",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-actions-checkout-9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0-a76c9f",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-githubcodeql-action-analyze-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee-c95396",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-githubcodeql-action-autobuild-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee-e5510f",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-actions-setup-python-5fda3b95a4ea91299a34e894583c3862153e4b97-42919c",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-pypi-certifi-8d7047",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-github-psf-requests-main-d65a21",
+        "relatedSpdxElement": "SPDXRef-githubactions-githubcodeql-action-init-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee-3f12f8",
+        "relationshipType": "DEPENDS_ON"
+      },
+      {
+        "spdxElementId": "SPDXRef-DOCUMENT",
+        "relatedSpdxElement": "SPDXRef-github-psf-requests-main-d65a21",
+        "relationshipType": "DESCRIBES"
+      }
+    ]
+  }
+}

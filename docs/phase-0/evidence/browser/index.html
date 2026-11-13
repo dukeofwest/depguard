@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DepGuard CORS proof</title>
+  </head>
+  <body>
+    <h1>DepGuard Phase 0 — browser CORS proof</h1>
+    <pre id="out">running…</pre>
+    <script>
+      // Everything here runs in a real Chrome page at origin https://dukeofwest.github.io.
+      // The browser enforces CORS; any violation throws a TypeError and is recorded as FAIL.
+      const results = [];
+      const log = (o) => {
+        results.push(o);
+      };
+
+      async function probe(label, url, init) {
+        const t0 = performance.now();
+        try {
+          const res = await fetch(url, init);
+          const ms = Math.round(performance.now() - t0);
+          // Reading the body proves the response is NOT an opaque CORS-blocked response.
+          const text = await res.text();
+          log({
+            label,
+            outcome: 'OK',
+            status: res.status,
+            ms,
+            bodyBytes: text.length,
+            type: res.type, // 'cors' or 'basic'; 'opaque' = blocked
+            // These are only readable if Access-Control-Expose-Headers permits it.
+            rateLimitRemaining: res.headers.get('x-ratelimit-remaining'),
+            rateLimitReset: res.headers.get('x-ratelimit-reset'),
+            contentType: res.headers.get('content-type'),
+            redirected: res.redirected,
+            finalUrl: res.url,
+            bodyHead: text.slice(0, 120),
+          });
+          return text;
+        } catch (e) {
+          log({
+            label,
+            outcome: 'FAIL',
+            error: e.constructor.name + ': ' + e.message,
+            ms: Math.round(performance.now() - t0),
+          });
+          return null;
+        }
+      }
+
+      (async () => {
+        log({ note: 'page origin', origin: location.origin, href: location.href });
+
+        // --- 1. THE critical test: SBOM retrieval from a browser ---
+        const sbomText = await probe(
+          'GH SBOM expressjs/express',
+          'https://api.github.com/repos/expressjs/express/dependency-graph/sbom',
+          { headers: { Accept: 'application/vnd.github+json' } },
+        );
+
+        // --- 2. Large SBOM: payload size + real in-browser parse cost ---
+        const bigText = await probe(
+          'GH SBOM npm/cli (large)',
+          'https://api.github.com/repos/npm/cli/dependency-graph/sbom',
+          { headers: { Accept: 'application/vnd.github+json' } },
+        );
+        if (bigText) {
+          const p0 = performance.now();
+          const doc = JSON.parse(bigText);
+          const parseMs = performance.now() - p0;
+          log({
+            label: 'npm/cli JSON.parse in browser',
+            outcome: 'OK',
+            packages: doc.sbom.packages.length,
+            bytes: bigText.length,
+            parseMs: Math.round(parseMs * 100) / 100,
+          });
+        }
+
+        // --- 3. SBOM 404 path (must be a clean status, not a CORS failure) ---
+        await probe(
+          'GH SBOM 404 (is-odd)',
+          'https://api.github.com/repos/sindresorhus/is-odd/dependency-graph/sbom',
+          { headers: { Accept: 'application/vnd.github+json' } },
+        );
+
+        // --- 4. Other endpoints the scan depends on ---
+        await probe('GH repo metadata', 'https://api.github.com/repos/expressjs/express', {
+          headers: { Accept: 'application/vnd.github+json' },
+        });
+        await probe(
+          'GH recursive tree',
+          'https://api.github.com/repos/expressjs/express/git/trees/master?recursive=1',
+          { headers: { Accept: 'application/vnd.github+json' } },
+        );
+
+        // --- 5. raw.githubusercontent.com (free file contents) ---
+        await probe(
+          'raw.githubusercontent dependabot.yml',
+          'https://raw.githubusercontent.com/expressjs/express/master/.github/dependabot.yml',
+        );
+
+        // --- 6. OSV POST: application/json forces a real CORS preflight ---
+        await probe('OSV querybatch (preflighted POST)', 'https://api.osv.dev/v1/querybatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            queries: [{ package: { name: 'lodash', ecosystem: 'npm' }, version: '4.17.15' }],
+          }),
+        });
+
+        await probe('OSV vuln detail GET', 'https://api.osv.dev/v1/vulns/GHSA-29mw-wpgm-hmr9');
+
+        // --- 7. Negative control: a header GitHub does NOT allow must be BLOCKED.
+        // If this "passes", the browser is not enforcing CORS and the whole run is void.
+        await probe(
+          'NEGATIVE CONTROL (disallowed header, must FAIL)',
+          'https://api.github.com/repos/expressjs/express',
+          { headers: { 'X-Depguard-Not-Allowed': 'should-be-blocked' } },
+        );
+
+        document.title = 'DONE';
+        window.__RESULTS__ = results;
+        document.getElementById('out').textContent = JSON.stringify(results, null, 2);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,132 @@
+[
+  {
+    "note": "page origin",
+    "origin": "https://dukeofwest.github.io",
+    "href": "https://dukeofwest.github.io/depguard/"
+  },
+  {
+    "label": "GH SBOM expressjs/express",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 107,
+    "bodyBytes": 38798,
+    "type": "cors",
+    "rateLimitRemaining": "54",
+    "rateLimitReset": "1794559580",
+    "contentType": "application/json; charset=utf-8",
+    "redirected": false,
+    "finalUrl": "https://api.github.com/repos/expressjs/express/dependency-graph/sbom",
+    "bodyHead": "{\n  \"sbom\": {\n    \"spdxVersion\": \"SPDX-2.3\",\n    \"dataLicense\": \"CC0-1.0\",\n    \"SPDXID\": \"SPDXRef-DOCUMENT\",\n    \"name\":"
+  },
+  {
+    "label": "GH SBOM npm/cli (large)",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 24,
+    "bodyBytes": 1146068,
+    "type": "cors",
+    "rateLimitRemaining": "53",
+    "rateLimitReset": "1794559580",
+    "contentType": "application/json; charset=utf-8",
+    "redirected": false,
+    "finalUrl": "https://api.github.com/repos/npm/cli/dependency-graph/sbom",
+    "bodyHead": "{\n  \"sbom\": {\n    \"spdxVersion\": \"SPDX-2.3\",\n    \"dataLicense\": \"CC0-1.0\",\n    \"SPDXID\": \"SPDXRef-DOCUMENT\",\n    \"name\":"
+  },
+  {
+    "label": "npm/cli JSON.parse in browser",
+    "outcome": "OK",
+    "packages": 1208,
+    "bytes": 1146068,
+    "parseMs": 2.8
+  },
+  {
+    "label": "GH SBOM 404 (is-odd)",
+    "outcome": "OK",
+    "status": 404,
+    "ms": 27,
+    "bodyBytes": 103,
+    "type": "cors",
+    "rateLimitRemaining": "52",
+    "rateLimitReset": "1794559580",
+    "contentType": "application/json; charset=utf-8",
+    "redirected": false,
+    "finalUrl": "https://api.github.com/repos/sindresorhus/is-odd/dependency-graph/sbom",
+    "bodyHead": "{\n  \"message\": \"Not Found\",\n  \"documentation_url\": \"https://docs.github.com/rest\",\n  \"status\": \"404\"\n}\n"
+  },
+  {
+    "label": "GH repo metadata",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 31,
+    "bodyBytes": 6925,
+    "type": "cors",
+    "rateLimitRemaining": "51",
+    "rateLimitReset": "1794559580",
+    "contentType": "application/json; charset=utf-8",
+    "redirected": false,
+    "finalUrl": "https://api.github.com/repos/expressjs/express",
+    "bodyHead": "{\n  \"id\": 237159,\n  \"node_id\": \"MDEwOlJlcG9zaXRvcnkyMzcxNTk=\",\n  \"name\": \"express\",\n  \"full_name\": \"expressjs/express\",\n"
+  },
+  {
+    "label": "GH recursive tree",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 29,
+    "bodyBytes": 81462,
+    "type": "cors",
+    "rateLimitRemaining": "50",
+    "rateLimitReset": "1794559580",
+    "contentType": "application/json; charset=utf-8",
+    "redirected": false,
+    "finalUrl": "https://api.github.com/repos/expressjs/express/git/trees/master?recursive=1",
+    "bodyHead": "{\n  \"sha\": \"43fca52d28a422c8be48fd489cbd4f2d6152bab6\",\n  \"url\": \"https://api.github.com/repos/expressjs/express/git/tree"
+  },
+  {
+    "label": "raw.githubusercontent dependabot.yml",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 56,
+    "bodyBytes": 442,
+    "type": "cors",
+    "rateLimitRemaining": null,
+    "rateLimitReset": null,
+    "contentType": "text/plain; charset=utf-8",
+    "redirected": false,
+    "finalUrl": "https://raw.githubusercontent.com/expressjs/express/master/.github/dependabot.yml",
+    "bodyHead": "version: 2\nupdates:\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: monthly\n    gro"
+  },
+  {
+    "label": "OSV querybatch (preflighted POST)",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 532,
+    "bodyBytes": 375,
+    "type": "cors",
+    "rateLimitRemaining": null,
+    "rateLimitReset": null,
+    "contentType": "application/json",
+    "redirected": false,
+    "finalUrl": "https://api.osv.dev/v1/querybatch",
+    "bodyHead": "{\"results\":[{\"vulns\":[{\"id\":\"GHSA-29mw-wpgm-hmr9\",\"modified\":\"2025-09-29T21:12:31.102523Z\"},{\"id\":\"GHSA-35jh-r3h4-6jhm\","
+  },
+  {
+    "label": "OSV vuln detail GET",
+    "outcome": "OK",
+    "status": 200,
+    "ms": 189,
+    "bodyBytes": 4846,
+    "type": "cors",
+    "rateLimitRemaining": null,
+    "rateLimitReset": null,
+    "contentType": "application/json",
+    "redirected": false,
+    "finalUrl": "https://api.osv.dev/v1/vulns/GHSA-29mw-wpgm-hmr9",
+    "bodyHead": "{\"id\":\"GHSA-29mw-wpgm-hmr9\",\"summary\":\"Regular Expression Denial of Service (ReDoS) in lodash\",\"details\":\"All versions o"
+  },
+  {
+    "label": "NEGATIVE CONTROL (disallowed header, must FAIL)",
+    "outcome": "FAIL",
+    "error": "TypeError: Failed to fetch",
+    "ms": 127
+  }
+]
