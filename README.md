@@ -6,10 +6,10 @@ DepGuard analyses a public GitHub repository and produces one evidence-backed re
 covering its dependencies, security configuration, maintenance activity and engineering
 signals.
 
-> **Status: in development.** Phase 1 (project foundation) is complete. The analysis
-> workflow is not implemented yet, so the application currently renders its shell only.
-> This README describes what exists today and is completed in Phase 7. Nothing below
-> claims a feature that is not built.
+> **Status: in development.** Phases 0–4 are complete: the analysis engine and both API
+> integrations work end to end and are verified against live GitHub and OSV data. The user
+> interface is not built yet (Phase 5), so the application currently renders its shell
+> only. This README is completed in Phase 7 and claims no feature that is not built.
 
 ---
 
