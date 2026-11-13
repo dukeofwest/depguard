@@ -18,16 +18,8 @@ export const ACTIVITY_THRESHOLDS = {
   limitedActivityDays: 365,
 } as const;
 
-/**
- * A release older than this is reported as ageing.
- *
- * Reported as an observation only. Many healthy projects release rarely, so this never
- * drives a classification on its own.
- */
-export const RELEASE_AGE_NOTICE_DAYS = 730;
-
 /** Milliseconds per day, for date arithmetic in the engine. */
-export const MS_PER_DAY = 86_400_000;
+const MS_PER_DAY = 86_400_000;
 
 /**
  * Whole days between two instants, or null when the input is unusable.

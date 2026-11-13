@@ -61,54 +61,57 @@
         }
 
         @case ('running') {
-          <dg-analysis-progress
-            [ref]="$any(state()).ref"
-            [stage]="$any(state()).stage"
-            [detail]="$any(state()).detail"
-          />
+          @if (running(); as scan) {
+            <dg-analysis-progress [ref]="scan.ref" [stage]="scan.stage" [detail]="scan.detail" />
+          }
         }
 
         @case ('completed') {
-          <dg-dashboard [report]="$any(state()).report" />
+          @if (completed(); as scan) {
+            <dg-dashboard [report]="scan.report" />
+          }
         }
 
         @case ('cancelled') {
-          <section class="message">
-            <h1 class="message__title">Analysis cancelled</h1>
-            <p class="message__body">
-              The analysis of
-              <code>{{ $any(state()).ref.owner }}/{{ $any(state()).ref.repo }}</code> was stopped
-              before it finished.
-            </p>
-            <div class="message__actions">
-              <button class="button" type="button" (click)="retry()">Try again</button>
-              <button class="button button--ghost" type="button" (click)="reset()">
-                Analyse something else
-              </button>
-            </div>
-          </section>
+          @if (cancelled(); as scan) {
+            <section class="message">
+              <h1 class="message__title">Analysis cancelled</h1>
+              <p class="message__body">
+                The analysis of <code>{{ scan.ref.owner }}/{{ scan.ref.repo }}</code> was stopped
+                before it finished.
+              </p>
+              <div class="message__actions">
+                <button class="button" type="button" (click)="retry()">Try again</button>
+                <button class="button button--ghost" type="button" (click)="reset()">
+                  Analyse something else
+                </button>
+              </div>
+            </section>
+          }
         }
 
         @case ('failed') {
-          <section class="message" role="alert">
-            <h1 class="message__title">{{ $any(state()).error.message }}</h1>
-            @if ($any(state()).error.remedy; as remedy) {
-              <p class="message__body">{{ remedy }}</p>
-            }
-            @if (retryTime(); as time) {
-              <p class="message__body">
-                The limit resets at approximately <strong>{{ time }}</strong>.
-              </p>
-            }
-            <div class="message__actions">
-              @if (canRetry()) {
-                <button class="button" type="button" (click)="retry()">Try again</button>
+          @if (failed(); as scan) {
+            <section class="message" role="alert">
+              <h1 class="message__title">{{ scan.error.message }}</h1>
+              @if (scan.error.remedy; as remedy) {
+                <p class="message__body">{{ remedy }}</p>
               }
-              <button class="button button--ghost" type="button" (click)="reset()">
-                Back to start
-              </button>
-            </div>
-          </section>
+              @if (retryTime(); as time) {
+                <p class="message__body">
+                  The limit resets at approximately <strong>{{ time }}</strong>.
+                </p>
+              }
+              <div class="message__actions">
+                @if (canRetry()) {
+                  <button class="button" type="button" (click)="retry()">Try again</button>
+                }
+                <button class="button button--ghost" type="button" (click)="reset()">
+                  Back to start
+                </button>
+              </div>
+            </section>
+          }
         }
       }
     </div>

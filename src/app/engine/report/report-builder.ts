@@ -13,6 +13,7 @@ import type {
 } from '../../core/models/health-report.model';
 import type { RepositorySnapshot } from '../../core/models/repository.model';
 import type { VulnerabilityResult } from '../../core/models/vulnerability.model';
+import { VERIFIED_ECOSYSTEMS } from '../dependencies/ecosystems';
 import { analyseEngineering } from '../health/engineering-analyzer';
 import { analyseMaintenance } from '../health/maintenance-analyzer';
 import { buildRecommendations } from '../recommendations/recommendation-engine';
@@ -184,6 +185,27 @@ function collectLimitations(input: BuildReportInput): readonly AnalysisLimitatio
     limitations.push({
       scope: 'Dependency coverage',
       detail: `${coverage.totalPackages - coverage.queryablePackages} of ${coverage.totalPackages} dependencies could not be checked for vulnerabilities, because their versions are not recorded as exact versions or their ecosystem is not supported.`,
+    });
+  }
+
+  // §5.2 forbids claiming ecosystem support that has not been demonstrated. Phase 0
+  // verified npm and PyPI against live SBOMs; the other mappings rest on documentation
+  // alone, so a repository using one is told so rather than left to assume parity.
+  const unverified = [
+    ...new Set(
+      input.packages
+        .map((pkg) => pkg.ecosystem)
+        .filter(
+          (ecosystem): ecosystem is NonNullable<typeof ecosystem> =>
+            ecosystem !== null && !VERIFIED_ECOSYSTEMS.includes(ecosystem),
+        ),
+    ),
+  ].sort();
+
+  if (unverified.length > 0) {
+    limitations.push({
+      scope: 'Ecosystem coverage',
+      detail: `This repository uses ${unverified.join(', ')}. DepGuard's vulnerability matching has been verified against ${VERIFIED_ECOSYSTEMS.join(' and ')} using real repository data; support for these ecosystems follows the documented mapping but has not been confirmed in the same way, so results for them may be incomplete.`,
     });
   }
 

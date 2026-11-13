@@ -374,6 +374,37 @@ describe('buildReport', () => {
       }
     });
 
+    it('discloses ecosystems whose matching has not been verified (§5.2)', () => {
+      // psf/requests is a PyPI project, which Phase 0 verified, so no notice is due.
+      const verifiedOnly = buildReport(
+        inputFor(expressSbom, { kind: 'completed', findings: [], packagesChecked: 8 }),
+      );
+      expect(verifiedOnly.limitations.some((l) => l.scope === 'Ecosystem coverage')).toBe(false);
+
+      // A Cargo dependency is mapped from documentation only, so it must be disclosed.
+      const withUnverified = buildReport({
+        ...inputFor(expressSbom, { kind: 'completed', findings: [], packagesChecked: 8 }),
+        packages: [
+          {
+            key: 'crates.io|serde|1.0.0',
+            name: 'serde',
+            purlType: 'cargo',
+            ecosystem: 'crates.io',
+            declaredVersion: '1.0.0',
+            versionKind: 'exact',
+            relationship: 'unknown',
+            licenseConcluded: null,
+            skipReason: null,
+          },
+        ],
+      });
+
+      const notice = withUnverified.limitations.find((l) => l.scope === 'Ecosystem coverage');
+      expect(notice).toBeDefined();
+      expect(notice?.detail).toContain('crates.io');
+      expect(notice?.detail).toContain('has not been confirmed');
+    });
+
     it('always states its standing limitations', () => {
       const scopes = report.limitations.map((l) => l.scope);
       expect(scopes).toContain('Scope of analysis');

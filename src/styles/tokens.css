@@ -15,35 +15,37 @@
   /* ---- Text ----------------------------------------------------------- */
   --color-text-primary: #f1f5f9;
   --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+  --color-text-muted: #8c9bb2;
 
   /* ---- Accent --------------------------------------------------------- */
-  --color-accent: #3b82f6;
-  --color-accent-hover: #60a5fa;
+  --color-accent: #60a5fa;
+  /* For solid fills carrying white text; the lighter accent fails AA against white. */
+  --color-accent-strong: #2563eb;
+  --color-accent-hover: #93c5fd;
   --color-accent-muted: rgba(59, 130, 246, 0.14);
   --color-focus: #93c5fd;
 
   /* ---- Status --------------------------------------------------------- */
   --color-success: #22c55e;
   --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+  --color-danger: #f87171;
   --color-info: #38bdf8;
 
   /* ---- Severity -------------------------------------------------------
      Deliberately restrained. Severity is never communicated by colour
      alone — every severity also carries a text label and an icon shape
      (§11.6). "Unknown" is grey, not green: absence of data is not safety. */
-  --color-severity-critical: #f0484f;
+  --color-severity-critical: #ff7b80;
   --color-severity-high: #f97316;
   --color-severity-medium: #eab308;
   --color-severity-low: #38bdf8;
-  --color-severity-unknown: #7a8aa3;
+  --color-severity-unknown: #9aa9c0;
 
   /* ---- Check status --------------------------------------------------- */
   --color-status-configured: #22c55e;
   --color-status-not-detected: #f59e0b;
-  --color-status-unknown: #7a8aa3;
-  --color-status-not-applicable: #64748b;
+  --color-status-unknown: #9aa9c0;
+  --color-status-not-applicable: #8c9bb2;
 
   /* ---- Typography ----------------------------------------------------- */
   --font-sans:

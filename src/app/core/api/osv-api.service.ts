@@ -1,21 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import {
-  Observable,
-  catchError,
-  concatMap,
-  from,
-  map,
-  mergeMap,
-  of,
-  reduce,
-  throwError,
-  timeout,
-} from 'rxjs';
+import { Observable, catchError, concatMap, from, map, mergeMap, of, reduce, timeout } from 'rxjs';
 
 import { OSV_API_ORIGIN, OSV_LIMITS, RESPONSE_LIMITS } from '../config/api.config';
-import { createAppError, type AppError } from '../models/api-error.model';
 import type { NormalizedPackage } from '../models/dependency.model';
+import { normalizeVersionForQuery } from '../../engine/dependencies/purl';
 
 /**
  * OSV.dev vulnerability client.
@@ -106,7 +95,13 @@ export class OsvApiService {
   private queryBatch(packages: readonly NormalizedPackage[]): Observable<BatchOutcome> {
     const queries = packages.map((pkg) => ({
       package: { name: pkg.name, ecosystem: pkg.ecosystem },
-      version: pkg.declaredVersion,
+      // Normalised per ecosystem: OSV expects Go versions with a leading `v`, and
+      // rejects it elsewhere. No other rewriting happens — altering a version before
+      // matching would risk matching the wrong one.
+      version:
+        pkg.ecosystem === null || pkg.declaredVersion === null
+          ? pkg.declaredVersion
+          : normalizeVersionForQuery(pkg.ecosystem, pkg.declaredVersion),
     }));
 
     return this.http
@@ -263,12 +258,3 @@ function chunk<T>(items: readonly T[], size: number): readonly (readonly T[])[] 
   }
   return chunks;
 }
-
-/** Typed error for a total OSV failure, when the caller needs one. */
-export function osvUnavailable(reason: string): AppError {
-  return createAppError('osv-unavailable', reason, {
-    remedy: 'Vulnerability results are unavailable. Other analysis categories are unaffected.',
-  });
-}
-
-export { throwError };

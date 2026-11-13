@@ -43,14 +43,6 @@ export type CategoryId =
   | 'maintenance'
   | 'engineering';
 
-export const CATEGORY_IDS: readonly CategoryId[] = [
-  'dependency-security',
-  'dependency-health',
-  'security-configuration',
-  'maintenance',
-  'engineering',
-] as const;
-
 export const CATEGORY_LABELS: Readonly<Record<CategoryId, string>> = {
   'dependency-security': 'Dependency Security',
   'dependency-health': 'Dependency Health',

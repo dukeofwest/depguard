@@ -138,8 +138,8 @@ import type { RepositoryMetadata } from '../../core/models/repository.model';
 
     .button {
       padding: var(--space-2) var(--space-4);
-      background: var(--color-accent);
-      border: 1px solid var(--color-accent);
+      background: var(--color-accent-strong);
+      border: 1px solid var(--color-accent-strong);
       border-radius: var(--radius-md);
       color: #fff;
       font-size: var(--text-sm);

@@ -39,6 +39,34 @@ export class App {
 
   protected readonly state = this.store.current;
 
+  /**
+   * Narrowed views of the scan state.
+   *
+   * Angular's template type checker does not narrow a discriminated union through
+   * `@switch (state().kind)`, and `$any()` would silence the error by disabling type
+   * checking for that expression entirely — the template equivalent of a type assertion,
+   * which §4.2 forbids. Narrowing here instead keeps the templates fully type-checked.
+   */
+  protected readonly running = computed(() => {
+    const state = this.state();
+    return state.kind === 'running' ? state : null;
+  });
+
+  protected readonly completed = computed(() => {
+    const state = this.state();
+    return state.kind === 'completed' ? state : null;
+  });
+
+  protected readonly failed = computed(() => {
+    const state = this.state();
+    return state.kind === 'failed' ? state : null;
+  });
+
+  protected readonly cancelled = computed(() => {
+    const state = this.state();
+    return state.kind === 'cancelled' ? state : null;
+  });
+
   protected readonly remaining = this.rateLimit.remaining;
   protected readonly limit = this.rateLimit.limit;
 

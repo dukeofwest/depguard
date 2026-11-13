@@ -9,23 +9,23 @@
 <section class="overall" aria-labelledby="overall-heading">
   <h2 class="dg-visually-hidden" id="overall-heading">Overall health</h2>
 
-  @if (report().overall.kind === 'scored') {
+  @if (scoredOverall(); as overall) {
     <div class="overall__score">
-      <dg-score-ring [score]="$any(report().overall).score" [band]="$any(report().overall).band" />
-      <p class="overall__band">{{ $any(report().overall).band }}</p>
+      <dg-score-ring [score]="overall.score" [band]="overall.band" />
+      <p class="overall__band">{{ overall.band }}</p>
     </div>
     <div class="overall__detail">
-      <dg-coverage-bar [coverage]="$any(report().overall).coverage" />
-      <p class="overall__explanation">{{ $any(report().overall).explanation }}</p>
+      <dg-coverage-bar [coverage]="overall.coverage" />
+      <p class="overall__explanation">{{ overall.explanation }}</p>
       <p class="overall__disclaimer">
-        This is DepGuard’s heuristic assessment of observable repository signals. It is not a
+        This is DepGuard's heuristic assessment of observable repository signals. It is not a
         security certification, and a good score does not mean the code is secure.
       </p>
     </div>
-  } @else {
+  } @else if (unavailableOverall(); as overall) {
     <div class="overall__unavailable">
       <h3>No overall score</h3>
-      <p>{{ $any(report().overall).reason }}</p>
+      <p>{{ overall.reason }}</p>
     </div>
   }
 </section>

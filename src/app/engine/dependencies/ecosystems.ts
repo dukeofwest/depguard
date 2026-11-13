@@ -32,7 +32,3 @@ export const PURL_TYPE_TO_ECOSYSTEM: Readonly<Record<string, OsvEcosystem>> = {
  * the report states which ecosystems are verified rather than implying parity.
  */
 export const VERIFIED_ECOSYSTEMS: readonly OsvEcosystem[] = ['npm', 'PyPI'] as const;
-
-export function isVerifiedEcosystem(ecosystem: OsvEcosystem): boolean {
-  return VERIFIED_ECOSYSTEMS.includes(ecosystem);
-}

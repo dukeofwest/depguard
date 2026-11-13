@@ -58,6 +58,17 @@ export class DashboardComponent {
     { id: 'engineering', label: 'Engineering' },
   ] as const;
 
+  /** Narrowed overall result, so the template stays type-checked (see app.component.ts). */
+  protected readonly scoredOverall = computed(() => {
+    const overall = this.report().overall;
+    return overall.kind === 'scored' ? overall : null;
+  });
+
+  protected readonly unavailableOverall = computed(() => {
+    const overall = this.report().overall;
+    return overall.kind === 'unavailable' ? overall : null;
+  });
+
   protected readonly categoryCards = computed(() =>
     this.report().categories.map((category) => ({
       category,

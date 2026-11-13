@@ -11,7 +11,7 @@ export const GITHUB_RAW_ORIGIN = 'https://raw.githubusercontent.com' as const;
 export const OSV_API_ORIGIN = 'https://api.osv.dev' as const;
 
 /** The only hosts the application may contact. Enforced before every request. */
-export const ALLOWED_ORIGINS: readonly string[] = [
+const ALLOWED_ORIGINS: readonly string[] = [
   GITHUB_API_ORIGIN,
   GITHUB_RAW_ORIGIN,
   OSV_API_ORIGIN,
@@ -91,11 +91,6 @@ export const INSPECTED_FILE_PATHS: readonly string[] = [
   'SECURITY.md',
   '.github/SECURITY.md',
 ] as const;
-
-/** Builds a GitHub API URL. Segments are encoded by the caller after validation. */
-export function githubApiUrl(path: string): string {
-  return `${GITHUB_API_ORIGIN}${path}`;
-}
 
 /** True when a URL targets an allowlisted origin. */
 export function isAllowedUrl(url: string): boolean {

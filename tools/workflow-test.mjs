@@ -119,10 +119,29 @@ await sleep(2500);
 
 console.log(`\n=== Workflow: analysing ${TARGET} ===`);
 console.log('landing rendered    :', await evaluate('!!document.querySelector("#repository-url")'));
-console.log(
-  'budget shown        :',
-  await evaluate('document.querySelector(".budget__value")?.textContent ?? "(not yet known)"'),
+
+const budget = await evaluate(
+  'document.querySelector(".budget__value")?.textContent ?? "(not yet known)"',
 );
+console.log('budget shown        :', budget);
+
+// Each run of this test spends about 8 of the 60 unauthenticated GitHub requests
+// available per hour. When the budget is gone the Analyse button is correctly disabled,
+// and the app stays on the landing page — so bail out loudly rather than reporting
+// landing-page elements as if they were a dashboard.
+const canScan = await evaluate('!document.querySelector(".search__button")?.disabled');
+if (!canScan) {
+  console.log('\nSTOPPED: the GitHub hourly request budget is exhausted, so no analysis can run.');
+  console.log(
+    'landing message     :',
+    await evaluate('document.querySelector(".search__error strong")?.textContent?.trim()'),
+  );
+  console.log('This is the intended behaviour (ADR-0004), not a failure of the application.');
+  ws.close();
+  chrome.kill();
+  server.close();
+  process.exit(0);
+}
 
 // Type into the input the way a user would, so Angular's (input) handler fires.
 await evaluate(`

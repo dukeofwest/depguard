@@ -1,4 +1,4 @@
-import type { CategoryId, CheckStatus, Evidence, Priority, Severity } from './analysis.model';
+import type { CategoryId, CheckStatus, Evidence, Priority } from './analysis.model';
 import type { DependencyCoverage, DependencyRow } from './dependency.model';
 import type { RepositoryMetadata } from './repository.model';
 import type { VulnerabilityResult } from './vulnerability.model';
@@ -137,6 +137,3 @@ export interface HealthReport {
   readonly limitations: readonly AnalysisLimitation[];
   readonly dataSources: readonly DataSourceInfo[];
 }
-
-/** Severity counts for dashboard summaries. */
-export type SeverityTally = Readonly<Record<Severity, number>>;

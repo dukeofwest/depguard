@@ -71,6 +71,29 @@ describe('OsvApiService', () => {
     expect(value.packagesFailed).toBe(0);
   });
 
+  it('adds the leading v that OSV expects for Go versions', () => {
+    // This normaliser existed but was never called until the Phase 6 dead-code audit
+    // found it. Go modules are versioned `v1.2.3`, and OSV will not match without it.
+    service
+      .queryPackages([
+        pkg('github.com/gogs/gogs', '0.12.0', { ecosystem: 'Go', purlType: 'golang' }),
+      ])
+      .subscribe();
+
+    const batch = httpMock.expectOne(BATCH_URL);
+    const body = batch.request.body as { queries: { version: string }[] };
+    expect(body.queries[0]?.version).toBe('v0.12.0');
+    batch.flush({ results: [{}] });
+  });
+
+  it('does not add a v prefix for other ecosystems', () => {
+    service.queryPackages([pkg('lodash', '4.17.15')]).subscribe();
+    const batch = httpMock.expectOne(BATCH_URL);
+    const body = batch.request.body as { queries: { version: string }[] };
+    expect(body.queries[0]?.version).toBe('4.17.15');
+    batch.flush({ results: [{}] });
+  });
+
   it('never sends a package whose version is not exact (ADR-0002)', () => {
     // The hard rule: OSV silently returns wrong results for a range, so the service
     // refuses them even if a caller passes them in.
