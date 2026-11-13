@@ -27,7 +27,7 @@ jobs:
       # controls the action's repository can repoint v4 at new code, which would execute
       # with this workflow's token. The comment records which release each SHA is, so the
       # pin stays auditable; Dependabot proposes the updates.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The checkout token is not needed after cloning, and leaving it in
           # .git/config would expose it to every later step, including anything a
@@ -86,7 +86,7 @@ jobs:
       contents: read # This job publishes nothing and needs no write scope.
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -131,7 +131,7 @@ jobs:
       contents: read # This job publishes nothing and needs no write scope.
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
