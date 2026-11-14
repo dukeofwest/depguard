@@ -88,7 +88,13 @@
     />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0b1120" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!--
+      SVG first, so the mark stays sharp at any size; the .ico is the fallback browsers
+      fetch from /favicon.ico regardless of what is declared here. Both are generated from
+      the same geometry — see tools/make-favicon.mjs.
+    -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
   </head>
   <body>
     <dg-root></dg-root>

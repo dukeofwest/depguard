@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="DepGuard">
+  <title>DepGuard</title>
+  <!--
+    A shield with a check inside: "guard", and a report that has been read rather than
+    assumed. Flat fills and one heavy stroke, because this has to survive being drawn at
+    16 pixels in a browser tab.
+
+    Colours are DepGuard's own tokens, copied rather than referenced — a favicon is
+    fetched as its own document and never sees the application's stylesheet:
+      #0b1120  --color-background
+      #60a5fa  --color-accent
+  -->
+  <rect width="32" height="32" rx="7" fill="#0b1120" />
+  <path
+    d="M16 4 L26.5 7.8 V16.2 C26.5 22.1 22.2 26.9 16 28.8 C9.8 26.9 5.5 22.1 5.5 16.2 V7.8 Z"
+    fill="#60a5fa"
+  />
+  <path
+    d="M11.1 16.3 L14.5 19.8 L21.1 12.6"
+    fill="none"
+    stroke="#0b1120"
+    stroke-width="3.1"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
