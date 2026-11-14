@@ -38,6 +38,18 @@ updates:
           - 'vitest'
           - '@vitest/*'
           - 'jsdom'
+    ignore:
+      # TypeScript's major version is not ours to choose: each Angular major declares a
+      # narrow peer range for it, and Angular 22 requires ">=6.0 <6.1". Dependabot picks
+      # the `latest` dist-tag, so it proposed TypeScript 7 twice - once producing a pull
+      # request that failed with ERESOLVE before installing anything, and once again
+      # immediately after the Angular 22 upgrade landed.
+      #
+      # Minor and patch updates still come through. The major will arrive with the
+      # Angular major that supports it, in the `angular` group above, which is the only
+      # way the two can land together and install.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
     labels:
       - dependencies
     commit-message:
