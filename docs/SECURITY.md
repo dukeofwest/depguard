@@ -14,6 +14,30 @@ Three companion documents carry the detail:
 
 The reporting process and scope are in the root [SECURITY.md](../SECURITY.md).
 
+## The standard this document is held to
+
+DepGuard's own security posture follows the same principle as its analysis results:
+**report what the evidence supports, disclose what it doesn't, and never claim more than
+has been demonstrated.**
+
+That principle is why the product refuses to call a repository secure, why a lost advisory
+record turns a clean result into a partial one, and why a `.csproj` version is reported but
+never queried. It applies to these documents too. A control that is described here is
+implemented and tested; a control that is partial says so and names the gap; a protection
+enforced by the browser rather than by this application is attributed to the browser.
+
+Three consequences worth stating, because each one cost a correction when it was got wrong:
+
+- **A documented control that is not enforced is a defect**, not a wording problem. The
+  aggregate discovery budget was documented as a limit while being implemented as a
+  post-hoc warning; it is now enforced during transfer, and the documentation says
+  precisely what that does and does not bound.
+- **Residual risk is disclosed with its magnitude**, not softened. The byte budget
+  overshoots by at most one chunk, and that is written down rather than rounded away.
+- **Verification status is distinguished from implementation status.** "Accepted",
+  "reported implemented" and "independently verified" are different claims, and this
+  documentation does not use one to mean another.
+
 ## Threat model in brief
 
 The full model — assets, trust boundaries, attackers, scenarios and residual risks — is in
