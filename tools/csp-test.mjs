@@ -46,14 +46,33 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dg-csp-'));
-const chrome = spawn(findChrome(), chromeArguments(DEBUG_PORT, ['--user-data-dir=' + profile]), {
-  stdio: 'ignore',
+const binary = findChrome();
+
+// Chrome's own output is captured rather than discarded. When this failed on a CI runner
+// the only message was "could not reach Chrome", which says nothing about why — a missing
+// shared library, a sandbox refusal and a slow start all look identical from outside.
+const chromeOutput = [];
+const chrome = spawn(binary, chromeArguments(DEBUG_PORT, ['--user-data-dir=' + profile]), {
+  stdio: ['ignore', 'pipe', 'pipe'],
 });
+chrome.stdout?.on('data', (chunk) => chromeOutput.push(String(chunk)));
+chrome.stderr?.on('data', (chunk) => chromeOutput.push(String(chunk)));
+let chromeExit = null;
+chrome.on('exit', (code, signal) => {
+  chromeExit = `exited with code ${code}${signal ? ` (signal ${signal})` : ''}`;
+});
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// 30 seconds, not 10. A CI runner starts Chrome a great deal more slowly than a
+// development machine, and the first attempt at this budget was simply too tight: the
+// same command passed in one job and timed out in another on the same commit.
 let target = null;
-for (let i = 0; i < 40 && !target; i++) {
-  await sleep(250);
+for (let i = 0; i < 60 && !target; i++) {
+  await sleep(500);
+  if (chromeExit !== null) {
+    break;
+  }
   try {
     const r = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/new?url=about:blank`, {
       method: 'PUT',
@@ -62,7 +81,12 @@ for (let i = 0; i < 40 && !target; i++) {
   } catch {}
 }
 if (!target) {
-  console.error('could not reach Chrome');
+  console.error(`could not reach Chrome on port ${DEBUG_PORT} within 30 seconds`);
+  console.error(`  binary: ${binary}`);
+  if (chromeExit !== null) console.error(`  process: ${chromeExit}`);
+  const output = chromeOutput.join('').trim();
+  console.error(output.length > 0 ? `  output:\n${output}` : '  output: (none)');
+  chrome.kill();
   process.exit(1);
 }
 
