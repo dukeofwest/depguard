@@ -106,24 +106,89 @@ describe('RepositoryDataService', () => {
     service.loadSnapshot(REF).subscribe();
     httpMock.expectOne(BASE).flush(METADATA);
 
-    // `match` consumes the requests, so they are flushed here rather than via
-    // flushSecondary().
-    const quotaRequests = httpMock.match((r) => r.url.startsWith('https://api.github.com/'));
+    // Drained in stages, because the tree is now fetched before the other sources: the
+    // workflow files whose contents the CodeQL check reads are discovered from it.
+    // That changes the ordering, not the count.
+    let quotaRequests = 0;
+    for (;;) {
+      const pending = httpMock.match((r) => r.url.startsWith('https://api.github.com/'));
+      if (pending.length === 0) {
+        break;
+      }
+      quotaRequests += pending.length;
+      for (const request of pending) {
+        request.flush(
+          request.request.url.includes('git/trees') ? { tree: [], truncated: false } : {},
+        );
+      }
+      // Raw content is drained alongside, since the snapshot waits on it.
+      for (const request of httpMock.match((r) =>
+        r.url.startsWith('https://raw.githubusercontent.com/'),
+      )) {
+        request.flush('', { status: 404, statusText: 'Not Found' });
+      }
+    }
 
     // 6 secondary + 1 metadata = 7 quota-consuming requests for a snapshot, plus the
     // SBOM fetched separately = 8 per scan. ADR-0004 budgeted 9 because it included
     // `/community/profile`; the recursive tree plus free raw.githubusercontent.com
     // content covers the same signals for one request less.
-    expect(quotaRequests.length).toBe(6);
+    expect(quotaRequests).toBe(6);
+  });
 
-    for (const request of quotaRequests) {
-      request.flush({});
-    }
+  // ---- P1-2 / P1-6: why a source is absent, not merely that it is --------
+
+  it('records why an optional source was unavailable', () => {
+    let snapshot: RepositorySnapshot | null = null;
+    service.loadSnapshot(REF).subscribe((value) => (snapshot = value));
+
+    httpMock.expectOne(BASE).flush(METADATA);
+    // A 403 that is not a rate limit: access denied, which is not the same thing as the
+    // resource not existing. Flattening both to null is what let the report assert
+    // "GitHub has no dependency graph for this repository" after a transport failure.
+    flushSecondary({ fail: [`${BASE}/actions/workflows`] });
+
+    const value = snapshot as unknown as RepositorySnapshot;
+    expect(value.workflows).toBeNull();
+    expect(value.sourceStates['workflows']).toEqual({
+      kind: 'unavailable',
+      reason: 'access-denied',
+      detail: expect.any(String),
+    });
+    // A source that succeeded carries no state at all.
+    expect(value.sourceStates['tree']).toBeUndefined();
+  });
+
+  it('distinguishes pending commit statistics from a failure', () => {
+    let snapshot: RepositorySnapshot | null = null;
+    service.loadSnapshot(REF).subscribe((value) => (snapshot = value));
+
+    httpMock.expectOne(BASE).flush(METADATA);
+
+    httpMock
+      .expectOne(`${BASE}/git/trees/master?recursive=1`)
+      .flush({ tree: [], truncated: false });
+    httpMock.expectOne(`${BASE}/actions/workflows`).flush({ workflows: [] });
+    httpMock.expectOne(`${BASE}/releases/latest`).flush({ tag_name: 'v1' });
+    httpMock.expectOne(`${BASE}/contributors?per_page=1&anon=true`).flush([{ login: 'a' }]);
+    httpMock.expectOne(`${BASE}/languages`).flush({});
+    // 202 Accepted: GitHub is computing the statistics, which is "not yet", not "none".
+    httpMock
+      .expectOne(`${BASE}/stats/commit_activity`)
+      .flush(null, { status: 202, statusText: 'Accepted' });
     for (const request of httpMock.match((r) =>
       r.url.startsWith('https://raw.githubusercontent.com/'),
     )) {
       request.flush('', { status: 404, statusText: 'Not Found' });
     }
+
+    const value = snapshot as unknown as RepositorySnapshot;
+    expect(value.weeklyCommits).toBeNull();
+    expect(value.sourceStates['commit-activity']?.kind).toBe('unavailable');
+    expect(
+      value.sourceStates['commit-activity']?.kind === 'unavailable' &&
+        value.sourceStates['commit-activity'].reason,
+    ).toBe('pending');
   });
 
   it('produces a partial snapshot when optional sources fail (§6.3)', () => {
@@ -175,14 +240,37 @@ describe('RepositoryDataService', () => {
     }
   });
 
-  it('reports a missing SBOM as null rather than failing', () => {
-    let sbom: unknown = 'untouched';
+  it('reports a missing SBOM as not-found rather than failing', () => {
+    let sbom: { body: unknown; state: { kind: string; reason?: string } } | null = null;
     service.loadSbom(REF).subscribe((value) => (sbom = value));
 
     httpMock
       .expectOne(`${BASE}/dependency-graph/sbom`)
       .flush({ message: 'Not Found' }, { status: 404, statusText: 'Not Found' });
 
-    expect(sbom).toBeNull();
+    const value = sbom as unknown as { body: unknown; state: { kind: string; reason?: string } };
+    expect(value.body).toBeNull();
+    // A 404 is the one case where "GitHub has no dependency graph" is a fair statement.
+    expect(value.state.reason).toBe('not-found');
+  });
+
+  it('distinguishes a rate-limited SBOM request from a missing dependency graph', () => {
+    let sbom: { body: unknown; state: { kind: string; reason?: string } } | null = null;
+    service.loadSbom(REF).subscribe((value) => (sbom = value));
+
+    httpMock.expectOne(`${BASE}/dependency-graph/sbom`).flush(
+      { message: 'rate limited' },
+      {
+        status: 403,
+        statusText: 'Forbidden',
+        headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '9999999999' },
+      },
+    );
+
+    const value = sbom as unknown as { body: unknown; state: { kind: string; reason?: string } };
+    expect(value.body).toBeNull();
+    // This is the defect P1-2 names: flattening it to null made the report say the
+    // repository has no dependency graph, which is a claim nothing established.
+    expect(value.state.reason).toBe('rate-limited');
   });
 });

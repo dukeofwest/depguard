@@ -86,6 +86,7 @@ function snapshot(): RepositorySnapshot {
     languages: null,
     weeklyCommits: null,
     fileContents: {},
+    sourceStates: {},
     retrievedAt: '2026-11-13T12:00:00.000Z',
   };
 }

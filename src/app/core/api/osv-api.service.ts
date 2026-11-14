@@ -32,6 +32,20 @@ export interface OsvQueryResult {
   readonly packagesFailed: number;
   /** Advisories found but not fetched in detail, because the cap was reached. */
   readonly advisoriesOmitted: number;
+  /**
+   * Advisory ids OSV confirmed in `querybatch` whose detail request then failed.
+   *
+   * Load-bearing. `querybatch` establishes that a package *is* affected; the detail
+   * request only supplies severity and prose. Dropping a failed detail silently would
+   * erase a confirmed vulnerability, and because findings are built from records rather
+   * than from matches the result would read as "no known vulnerabilities were found" —
+   * the single most damaging thing DepGuard could say (§6, ADR-0002).
+   *
+   * Retained as ids rather than as a count so the report can name what it lost. The
+   * ids are not turned into findings: inventing advisory details from an id alone would
+   * be the opposite error.
+   */
+  readonly advisoriesUnretrieved: readonly string[];
   readonly failureReason: string | null;
 }
 
@@ -68,6 +82,7 @@ export class OsvApiService {
         packagesChecked: 0,
         packagesFailed: 0,
         advisoriesOmitted: 0,
+        advisoriesUnretrieved: [],
         failureReason: null,
       });
     }
@@ -147,6 +162,11 @@ export class OsvApiService {
     const idsToFetch = uniqueIds.slice(0, OSV_LIMITS.maxDetailRequests);
     const advisoriesOmitted = uniqueIds.length - idsToFetch.length;
 
+    // Advisories beyond the cap were confirmed but deliberately not requested. They are
+    // a disclosed omission, not a transport failure, so they are counted separately from
+    // `advisoriesUnretrieved`.
+    const omittedIds = uniqueIds.slice(idsToFetch.length);
+
     if (idsToFetch.length === 0) {
       return of({
         records: [],
@@ -154,42 +174,94 @@ export class OsvApiService {
         packagesChecked: batched.checked,
         packagesFailed: batched.failed,
         advisoriesOmitted: 0,
+        advisoriesUnretrieved: [],
         failureReason: batched.failureReason,
       });
     }
 
     return from(idsToFetch).pipe(
       mergeMap((id) => this.fetchDetail(id), OSV_LIMITS.detailConcurrency),
-      reduce((records: unknown[], record: unknown | null) => {
-        if (record !== null) {
-          records.push(record);
-        }
-        return records;
-      }, []),
-      map((records) => ({
+      reduce(
+        (accumulated: DetailOutcome, outcome: AdvisoryDetail) => {
+          if (outcome.record === null) {
+            // Confirmed by querybatch, but its details never arrived. Recorded so the
+            // scan cannot be reported as complete.
+            accumulated.unretrieved.push(outcome.id);
+          } else {
+            accumulated.records.push(outcome.record);
+          }
+          return accumulated;
+        },
+        { records: [], unretrieved: [] },
+      ),
+      map(({ records, unretrieved }) => ({
         records,
         matches: batched.matches,
         packagesChecked: batched.checked,
         packagesFailed: batched.failed,
         advisoriesOmitted,
+        advisoriesUnretrieved: [...unretrieved].sort(),
         failureReason:
           batched.failureReason ??
-          (advisoriesOmitted > 0
-            ? `${advisoriesOmitted} further advisories were found but not retrieved, to bound the number of requests.`
-            : null),
+          describeIncompleteDetails([...unretrieved].sort(), omittedIds.length),
       })),
     );
   }
 
-  /** A single advisory. Failure yields null: one lost record must not fail the scan. */
-  private fetchDetail(id: string): Observable<unknown | null> {
+  /**
+   * A single advisory.
+   *
+   * A failure yields a null record **paired with its id** rather than a bare null: one
+   * lost record must not fail the scan, but it must not vanish either. An unparseable or
+   * oversized body is treated the same way as a transport failure — in both cases the
+   * advisory is confirmed and its details are unavailable.
+   */
+  private fetchDetail(id: string): Observable<AdvisoryDetail> {
     const url = `${OSV_API_ORIGIN}/v1/vulns/${encodeURIComponent(id)}`;
     return this.http.get(url, { responseType: 'text' }).pipe(
       timeout(RESPONSE_LIMITS.requestTimeoutMs),
-      map((text) => readBounded(text)),
-      catchError(() => of(null)),
+      map((text) => ({ id, record: readBounded(text) })),
+      catchError(() => of({ id, record: null })),
     );
   }
+}
+
+/** One advisory detail attempt: the id, and its record or null if it could not be read. */
+interface AdvisoryDetail {
+  readonly id: string;
+  readonly record: unknown | null;
+}
+
+interface DetailOutcome {
+  readonly records: unknown[];
+  readonly unretrieved: string[];
+}
+
+/**
+ * Describes incomplete advisory retrieval, or null when nothing was lost.
+ *
+ * Returning null for the complete case matters: a non-null reason forces the result to
+ * `partial`, and a scan that retrieved everything it asked for must not be marked
+ * incomplete merely because there was nothing to retrieve (§4.3 Scenario D).
+ */
+function describeIncompleteDetails(unretrieved: readonly string[], omitted: number): string | null {
+  const parts: string[] = [];
+
+  if (unretrieved.length > 0) {
+    parts.push(
+      `${unretrieved.length} confirmed ${unretrieved.length === 1 ? 'advisory' : 'advisories'} ` +
+        `could not be retrieved in full (${unretrieved.join(', ')}), so ${unretrieved.length === 1 ? 'it is' : 'they are'} ` +
+        'not listed below. This is not evidence that the affected dependencies are safe.',
+    );
+  }
+
+  if (omitted > 0) {
+    parts.push(
+      `${omitted} further advisories were found but not retrieved, to bound the number of requests.`,
+    );
+  }
+
+  return parts.length === 0 ? null : parts.join(' ');
 }
 
 /**

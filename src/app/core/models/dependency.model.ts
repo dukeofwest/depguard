@@ -43,6 +43,56 @@ export type VersionKind = 'exact' | 'range' | 'missing';
 /** Whether a package is a direct dependency, per SBOM relationship data. */
 export type DependencyRelationship = 'direct' | 'transitive' | 'unknown';
 
+/**
+ * Where a dependency was discovered.
+ *
+ * Never inferred, and never merged away: §4.4 requires that a dependency found in a
+ * manifest is not represented as though it came from a fully resolved dependency graph.
+ * The report shows this so a reader can tell a lockfile-backed inventory from a
+ * declaration-only one.
+ */
+export type DependencySource =
+  | 'github-sbom'
+  | 'package-lock.json'
+  | 'npm-shrinkwrap.json'
+  | 'package.json'
+  // .NET. Only the first two state installed versions; the rest are declarations.
+  | 'packages.lock.json'
+  | 'packages.config'
+  | 'csproj'
+  | 'vbproj'
+  | 'fsproj'
+  | 'Directory.Packages.props';
+
+/**
+ * How much a version string is actually worth.
+ *
+ * This is the distinction that keeps DepGuard from producing confident, wrong findings,
+ * and it is why `queryablePackages` admits only `resolved`.
+ *
+ * - `resolved` — a lockfile or dependency graph stated the version that is installed.
+ * - `declared-minimum` — a manifest stated a lower bound. A NuGet
+ *   `<PackageReference Version="13.0.1" />` means `[13.0.1, )`, so the installed version
+ *   may be higher. Querying OSV with the lower bound would report advisories fixed in a
+ *   version the project actually uses: a false positive that looks entirely plausible.
+ * - `declared-range` — a manifest stated a range, e.g. `^4.17.15`. Phase 0 measured that
+ *   OSV answers a range query rather than rejecting it, and answers it differently:
+ *   `lodash@^4.17.15` returned 4 advisories where the exact `4.17.15` returned 5.
+ * - `unresolved` — a version exists but cannot be determined statically, e.g. an MSBuild
+ *   `$(Property)`. Recorded as unknown rather than guessed (§13 constraint 12).
+ * - `absent` — no version information at all.
+ */
+export type VersionResolution =
+  'resolved' | 'declared-minimum' | 'declared-range' | 'unresolved' | 'absent';
+
+/**
+ * Whether a dependency ships to users.
+ *
+ * `unknown` is a real state: GitHub's SBOM carries no development flag, so claiming
+ * production for an SBOM-derived package would be inventing information.
+ */
+export type DependencyScope = 'production' | 'development' | 'optional' | 'unknown';
+
 /** A dependency normalised from the SBOM, before vulnerability matching. */
 export interface NormalizedPackage {
   /** Stable key for deduplication: `ecosystem|name|version`. */
@@ -58,6 +108,19 @@ export interface NormalizedPackage {
   readonly licenseConcluded: string | null;
   /** Absent when the package is queryable; present when it is not. */
   readonly skipReason: SkipReason | null;
+  /** Which file or API this dependency came from. */
+  readonly source: DependencySource;
+  /** The repository path it came from, or null for API-derived inventories. */
+  readonly sourcePath: string | null;
+  /**
+   * What the version means. Only `resolved` may be sent to OSV.
+   *
+   * Kept separate from `versionKind`, which describes the *shape* of the string. A
+   * NuGet declared minimum is shaped like an exact version and is not one, so shape
+   * alone cannot decide whether a version is safe to query.
+   */
+  readonly resolution: VersionResolution;
+  readonly scope: DependencyScope;
 }
 
 /** A dependency joined with its vulnerability findings, for the inventory table (§5.2). */
@@ -83,6 +146,17 @@ export interface DependencyCoverage {
   readonly skippedByReason: Readonly<Record<SkipReason, number>>;
   /** True when no lockfile appears to be committed — the dominant cause of low coverage. */
   readonly rangeVersionsDominant: boolean;
+  /** Which source produced this inventory, for the report's provenance statement. */
+  readonly inventorySource: DependencySource;
+  /**
+   * How much of the transitive graph this source can express.
+   *
+   * `none` for a manifest that lists only direct declarations. §5.7 forbids claiming
+   * transitive coverage that the parsed files cannot support.
+   */
+  readonly transitiveCoverage: 'full' | 'partial' | 'none';
+  /** Parse limitations, skipped files and unresolved values, for the report. */
+  readonly discoveryNotes: readonly string[];
   /**
    * Entries describing a package and version that another entry already described.
    *

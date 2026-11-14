@@ -71,6 +71,7 @@ function snapshot(overrides: Partial<RepositorySnapshot> = {}): RepositorySnapsh
     fileContents: {
       '.github/dependabot.yml': 'version: 2\nupdates:\n  - package-ecosystem: npm\n',
     },
+    sourceStates: {},
     retrievedAt: NOW.toISOString(),
     ...overrides,
   };
@@ -157,7 +158,7 @@ describe('DashboardComponent', () => {
 
       expect(element.querySelectorAll('.category')).toHaveLength(5);
       expect(text(element)).toContain('Dependency Security');
-      expect(text(element)).toContain('Maintenance and Activity');
+      expect(text(element)).toContain('Activity and Recency');
     });
   });
 

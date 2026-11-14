@@ -57,7 +57,7 @@ const scoring = squash(read('docs/SCORING.md'));
 const claims = [
   ["'dependency-security': 0.3", '| Dependency Security | 30% |'],
   ["'security-configuration': 0.25", '| Security Configuration | 25% |'],
-  ['maintenance: 0.2', '| Maintenance and Activity | 20% |'],
+  ['maintenance: 0.2', '| Activity and Recency | 20% |'],
   ['engineering: 0.15', '| Engineering and Project Quality | 15% |'],
   ["'dependency-health': 0.1", '| Dependency Health | 10% |'],
 ];

@@ -139,42 +139,74 @@ export function scoreDependencySecurity(
   }
 
   const findings = vulnerabilities.findings;
-  const deductions = deductionsForFindings(findings);
+
+  // Advisories OSV confirmed but whose details never arrived. They are not findings —
+  // DepGuard will not invent advisory details from an id — but they are known
+  // vulnerabilities, so they must cost score and must appear in the summary. Weighted at
+  // the `Unknown` severity rate, which is the model's existing treatment for a confirmed
+  // advisory whose severity is not available (P0-1, §4.3).
+  const unretrieved =
+    vulnerabilities.kind === 'partial' ? vulnerabilities.advisoriesUnretrieved : [];
+
+  const deductions = deductionsForFindings(findings, unretrieved);
 
   const unknownSeverityCount = findings.filter((f) => f.severity === 'Unknown').length;
-  const summary = summariseSecurity(findings, coverage, unknownSeverityCount);
+  const summary = summariseSecurity(findings, coverage, unknownSeverityCount, unretrieved);
 
-  const result = scored(id, deductions, coverage.queryableRatio, summary);
+  // A score is capped by how much was actually checked. Unchecked packages are unknown,
+  // not safe, so a partially checked repository cannot score 100 (§6.5).
+  //
+  // P1-11: the ceiling is applied **after** deductions and **regardless of whether any
+  // finding exists**. It was previously guarded by `findings.length === 0`, so any
+  // non-empty finding set escaped it entirely — at a queryable ratio of 0.70 a clean
+  // repository scored 88 while one with a single Low advisory scored 99. Discovering a
+  // vulnerability raised the score by 11 points, which is the exact opposite of what the
+  // category is for.
+  const ceiling = coverage.queryableRatio < 1 ? Math.round(60 + 40 * coverage.queryableRatio) : 100;
 
-  // A clean result is capped by how much was actually checked. Unchecked packages are
-  // unknown, not safe, so a partially checked repository cannot score 100 (§6.5).
-  if (result.kind === 'scored' && findings.length === 0 && coverage.queryableRatio < 1) {
-    const cap = Math.round(60 + 40 * coverage.queryableRatio);
-    if (result.score > cap) {
-      return {
-        ...result,
-        score: cap,
-        deductions: [
-          ...result.deductions,
+  const uncheckedDeduction: readonly Deduction[] =
+    ceiling < 100
+      ? [
           {
             reason: `${coverage.totalPackages - coverage.queryablePackages} of ${coverage.totalPackages} dependencies could not be checked`,
-            points: 100 - cap,
+            points: 100 - ceiling,
           },
-        ],
-      };
-    }
-  }
+        ]
+      : [];
 
-  return result;
+  const fromDeductions = deductions.reduce((sum, deduction) => sum + deduction.points, 0);
+  const score = Math.min(Math.max(0, 100 - fromDeductions), ceiling);
+
+  return {
+    kind: 'scored',
+    id,
+    score,
+    coverage: coverage.queryableRatio,
+    // The ceiling is itemised only when it actually bound the score, so the deductions
+    // continue to explain the number rather than over-explaining it.
+    deductions:
+      score === ceiling && ceiling < 100 ? [...deductions, ...uncheckedDeduction] : deductions,
+    summary,
+  };
 }
 
 /** One capped deduction per deduplicated advisory, each traceable to its finding. */
-function deductionsForFindings(findings: readonly VulnerabilityFinding[]): readonly Deduction[] {
+function deductionsForFindings(
+  findings: readonly VulnerabilityFinding[],
+  unretrieved: readonly string[],
+): readonly Deduction[] {
   const raw: Deduction[] = findings.map((finding) => ({
     reason: `${finding.severity} severity: ${finding.summary ?? finding.key}`,
     points: SEVERITY_DEDUCTIONS[finding.severity],
     relatedFindingKey: finding.key,
   }));
+
+  for (const advisoryId of unretrieved) {
+    raw.push({
+      reason: `Confirmed advisory ${advisoryId} could not be retrieved, so its severity is unknown`,
+      points: SEVERITY_DEDUCTIONS.Unknown,
+    });
+  }
 
   const total = raw.reduce((sum, deduction) => sum + deduction.points, 0);
   if (total <= MAX_SECURITY_DEDUCTION) {
@@ -197,15 +229,30 @@ function summariseSecurity(
   findings: readonly VulnerabilityFinding[],
   coverage: DependencyCoverage,
   unknownSeverityCount: number,
+  unretrieved: readonly string[],
 ): string {
+  // An unretrieved advisory is a *known* vulnerability. The summary must never read as
+  // clean while one exists, whatever the findings list says (§4.3 Scenario B).
+  const lost =
+    unretrieved.length === 0
+      ? ''
+      : ` A further ${unretrieved.length} confirmed ${unretrieved.length === 1 ? 'advisory' : 'advisories'} ` +
+        `could not be retrieved in full, so ${unretrieved.length === 1 ? 'it is' : 'they are'} not described above. ` +
+        `${unretrieved.length === 1 ? 'It was' : 'They were'} scored as medium.`;
+
   if (findings.length === 0) {
-    return `No known vulnerabilities were found in the ${coverage.queryablePackages} dependencies that could be checked.`;
+    const base =
+      unretrieved.length === 0
+        ? `No known vulnerabilities were found in the ${coverage.queryablePackages} dependencies that could be checked.`
+        : `No vulnerability could be described in full for the ${coverage.queryablePackages} dependencies that could be checked.`;
+    return `${base}${lost}`;
   }
+
   const base = `${findings.length} known ${findings.length === 1 ? 'vulnerability' : 'vulnerabilities'} affecting ${coverage.queryablePackages} checked dependencies.`;
   if (unknownSeverityCount > 0) {
-    return `${base} ${unknownSeverityCount} ${unknownSeverityCount === 1 ? 'advisory' : 'advisories'} published no severity rating and ${unknownSeverityCount === 1 ? 'was' : 'were'} scored as medium.`;
+    return `${base} ${unknownSeverityCount} ${unknownSeverityCount === 1 ? 'advisory' : 'advisories'} published no severity rating and ${unknownSeverityCount === 1 ? 'was' : 'were'} scored as medium.${lost}`;
   }
-  return base;
+  return `${base}${lost}`;
 }
 
 /**
@@ -256,10 +303,34 @@ export function scoreDependencyHealth(coverage: DependencyCoverage | null): Cate
   return scored(
     id,
     deductions,
-    1,
-    `${coverage.totalPackages} dependencies identified, ${coverage.queryablePackages} with a resolved version.`,
+    DEPENDENCY_HEALTH_COVERAGE,
+    `${coverage.totalPackages} dependencies identified, ${coverage.queryablePackages} with a resolved version. ` +
+      'Only inventory quality is assessed: version freshness and deprecation status are not ' +
+      'checked in this release, because no reliable free data source for them is integrated.',
   );
 }
+
+/**
+ * The share of the intended dependency-health analysis this release can perform.
+ *
+ * Previously hardcoded to `1`, which claimed complete coverage of an analysis that
+ * assesses one of three intended dimensions (P1-7). The category was designed around
+ * inventory quality, version freshness and deprecation status; only the first is
+ * implemented, and the report's own limitations section already says so — so `coverage: 1`
+ * contradicted the same report that contained it.
+ *
+ * Expressed as a fraction of named dimensions rather than a bare number so that
+ * implementing freshness later means moving a dimension, not re-deriving a constant.
+ */
+const DEPENDENCY_HEALTH_DIMENSIONS = {
+  assessed: ['inventory-quality'],
+  notImplemented: ['version-freshness', 'deprecation-status'],
+} as const;
+
+const DEPENDENCY_HEALTH_COVERAGE =
+  DEPENDENCY_HEALTH_DIMENSIONS.assessed.length /
+  (DEPENDENCY_HEALTH_DIMENSIONS.assessed.length +
+    DEPENDENCY_HEALTH_DIMENSIONS.notImplemented.length);
 
 /** Security configuration. Weighted toward the checks with real security consequences. */
 export function scoreSecurityConfiguration(checks: readonly SecurityCheck[]): CategoryResult {
@@ -279,10 +350,26 @@ export function scoreSecurityConfiguration(checks: readonly SecurityCheck[]): Ca
 }
 
 /**
- * Maintenance and activity.
+ * Activity and recency.
  *
  * Archived repositories are the clearest signal available — an explicit statement by the
  * owner — and are scored low without being treated as a security finding.
+ *
+ * Two corrections from the November 2026 audit shape this function:
+ *
+ * **P1-6.** The old `commitsLast52Weeks === 0` deduction of 15 points has been removed.
+ * It could only fire when GitHub had finished computing statistics, so a repository whose
+ * statistics were still pending scored 15 points *higher* than one known to have made no
+ * commits — missing data outscoring known-bad data, which §7.3 prohibits. The signal was
+ * also redundant: `daysSinceLastPush` is always available, never ambiguous, and already
+ * carries recency. The commit count is still reported as context, and the limitation is
+ * still named in the report; it simply no longer moves a score it could not move
+ * consistently.
+ *
+ * **P1-5.** Coverage now reflects only the signals that can affect the score.
+ * `contributorCount` and `daysSinceLastRelease` were previously in the coverage
+ * denominator while appearing in no deduction, so they could only ever lower confidence
+ * in a number they had no power to change. They remain in the report as context.
  */
 export function scoreMaintenance(signals: MaintenanceSignals): CategoryResult {
   const id: CategoryId = 'maintenance';
@@ -314,29 +401,45 @@ export function scoreMaintenance(signals: MaintenanceSignals): CategoryResult {
         deductions.push({ reason: `No commits in the last ${days} days`, points: 15 });
       }
     }
-
-    // Only applied when the data exists; its absence reduces coverage instead.
-    if (signals.commitsLast52Weeks !== null && signals.commitsLast52Weeks === 0) {
-      deductions.push({ reason: 'No commit activity recorded in the last 52 weeks', points: 15 });
-    }
   }
 
-  // Coverage reflects how many of the four activity signals were actually available.
-  const available = [
-    signals.daysSinceLastPush !== null,
-    signals.commitsLast52Weeks !== null,
-    signals.contributorCount !== null,
-    signals.daysSinceLastRelease !== null,
-  ].filter(Boolean).length;
+  // Every signal this category scores — the archived flag and the last push date — comes
+  // from repository metadata, which is the one request that must succeed for a scan to
+  // happen at all. So coverage is 1 whenever the category is scorable, and 0 when the
+  // push date is unusable (handled by the `Insufficient data` branch above). Reporting a
+  // fraction derived from unscored signals was the defect, not the fix.
+  return scored(id, deductions, 1, summariseActivity(signals));
+}
 
-  return scored(
-    id,
-    deductions,
-    available / 4,
-    signals.isArchived
-      ? 'This repository is archived.'
-      : `Activity classification: ${signals.classification}.`,
-  );
+/**
+ * States what was measured, and what the score does not cover.
+ *
+ * Required by P1-4: the score itself is defensible, but presenting "100/100" for a
+ * one-day-old repository without saying what was weighed invites the reader to hear a
+ * verdict on maintenance quality.
+ */
+function summariseActivity(signals: MaintenanceSignals): string {
+  if (signals.isArchived) {
+    return 'This repository is archived, which its owner has stated explicitly.';
+  }
+
+  const context: string[] = [];
+  if (signals.commitsLast52Weeks !== null) {
+    context.push(`${signals.commitsLast52Weeks} commits in the last 52 weeks`);
+  }
+  if (signals.contributorCount !== null) {
+    context.push(
+      `${signals.contributorCount} contributor${signals.contributorCount === 1 ? '' : 's'}`,
+    );
+  }
+
+  const measured =
+    `Activity classification: ${signals.classification}. ` +
+    'This score reflects how recently the repository was pushed to and whether it is archived. ' +
+    'It is not a judgement of maintenance quality: review practice, issue response and release ' +
+    'discipline are not observable here.';
+
+  return context.length === 0 ? measured : `${measured} For context: ${context.join(', ')}.`;
 }
 
 /** Engineering and project quality signals. */

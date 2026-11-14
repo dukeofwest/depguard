@@ -59,7 +59,22 @@ export type OverallResult =
       readonly kind: 'scored';
       readonly score: number;
       readonly band: ScoreBand;
+      /**
+       * Evidence depth: `Σ(category coverage × category weight)` over scored categories.
+       *
+       * How much of the intended evidence was actually obtained. Distinct from
+       * `assessedWeight`, and lower than it whenever any scored category is thinly
+       * evidenced. The two are equal only when every scored category has coverage 1.
+       */
       readonly coverage: number;
+      /**
+       * Share of the intended analysis, by weight, that could be scored at all.
+       *
+       * `Σ(weight)` over scored categories. Reported separately from `coverage` because
+       * presenting both as unlabelled percentages made a correct report look
+       * self-contradictory (P1-3).
+       */
+      readonly assessedWeight: number;
       /** Categories excluded from the calculation, with their weight redistributed. */
       readonly excludedCategories: readonly CategoryId[];
       readonly explanation: string;

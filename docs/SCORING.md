@@ -21,7 +21,7 @@ and were approved in [ADR-0003](adr/0003-scoring-model.md).
 | ------------------------------- | -----: |
 | Dependency Security             |    30% |
 | Security Configuration          |    25% |
-| Maintenance and Activity        |    20% |
+| Activity and Recency            |    20% |
 | Engineering and Project Quality |    15% |
 | Dependency Health               |    10% |
 
@@ -31,11 +31,27 @@ most often _unscorable_, while Maintenance and Security Configuration are the mo
 reliably observable. Weighting toward what can actually be measured keeps the overall
 score stable across repositories instead of lurching when an SBOM is missing.
 
-## Coverage, and why it is shown next to every score
+## The two coverage figures, and why there are two
 
-Coverage is the proportion of the intended analysis that completed. It is displayed with
-equal prominence to the score, because **a score of 92 at 45% coverage is not the same
-claim as a score of 92 at 100% coverage**.
+A report carries **two** percentages, which measure different things and must never be
+read as comparable:
+
+| Figure                | Formula                                        | Question it answers                       |
+| --------------------- | ---------------------------------------------- | ----------------------------------------- |
+| **Assessed weight**   | `Σ weight` over scored categories              | How much of the analysis ran at all?      |
+| **Evidence coverage** | `Σ (coverage × weight)` over scored categories | How well-evidenced was the part that ran? |
+
+They are equal only when every scored category is fully evidenced, and evidence coverage is
+otherwise the lower of the two. The November 2026 self-analysis reported 60% and 50%
+side by side with nothing naming either, and read as a contradiction when both were
+correct (audit finding P1-3): three of five categories were scored, accounting for 60% of
+the intended analysis by weight, and the evidence behind them was 50% of the whole.
+
+Both are now separate, named fields — `overall.assessedWeight` and `overall.coverage` —
+and the explanation sentence says what each one measures.
+
+Coverage is displayed with equal prominence to the score, because **a score of 92 at 45%
+coverage is not the same claim as a score of 92 at 100% coverage**.
 
 Each check resolves to one of four statuses:
 
@@ -97,11 +113,24 @@ Advisories are deduplicated on their CVE alias, because the same vulnerability i
 published by several databases. Three packages queried in Phase 0 returned 94 advisory IDs
 across GHSA, PYSEC, GO and RUSTSEC, with GHSA and PYSEC describing the _same_ Django CVEs.
 
-### A clean result is capped by how much was checked
+### A partially checked result is capped by how much was checked
 
-A repository with no detected vulnerabilities does **not** automatically score 100. The
+A repository does **not** score 100 for the half of its inventory nobody looked at. The
 maximum is bounded by the proportion of dependencies actually examined, because unchecked
-packages are unknown, not safe.
+packages are unknown, not safe:
+
+```
+ceiling = queryableRatio < 1 ? round(60 + 40 × queryableRatio) : 100
+score   = min(100 − Σ deductions, ceiling)
+```
+
+The ceiling applies **after deductions and regardless of whether any vulnerability was
+found**. That wording is deliberate: it used to apply only when the finding list was
+empty, so at a queryable ratio of 0.70 a clean repository scored 88 while one with a
+single low-severity advisory scored 99. Finding a vulnerability raised the score by 11
+points — the opposite of what the category is for. Fixed in November 2026 (audit finding
+P1-11), with a property test asserting that at fixed coverage, adding a finding can never
+raise the score.
 
 ## Worked example: `npm/cli`
 
@@ -135,10 +164,27 @@ distinguishing "some problems" from "catastrophic". 40 still reads clearly as po
 config (25), security policy (20), CodeQL workflow (15), CI (15), licence (15), dependency
 review (10).
 
-**Maintenance and Activity** — archived repositories deduct 70 and are not additionally
-penalised for staleness. Otherwise: no commits for over a year −40, none in 90 days −15,
-no commit activity recorded in 52 weeks −15. Coverage reflects how many of the four
-activity signals were available.
+**Activity and Recency** — archived repositories deduct 70 and are not additionally
+penalised for staleness. Otherwise: no commits for over a year −40, none in 90 days −15.
+
+Named for what it measures. It scores push recency and the archived flag, and **cannot**
+see review practice, issue response, release discipline or whether changes are any good —
+so a one-day-old repository with a single commit legitimately scores 100, and the category
+summary says what was weighed. It was called "Maintenance and Activity", which invited the
+score to be read as a verdict on maintenance quality (audit finding P1-4).
+
+Two corrections landed with the rename:
+
+- The −15 for **no commit activity in 52 weeks** was removed. It could only fire once
+  GitHub had finished computing statistics, so a repository whose statistics were still
+  pending scored 15 points _higher_ than one known to have made no commits — missing data
+  outscoring known-bad data (P1-6). `daysSinceLastPush` is always available and already
+  carries recency; the commit count is still reported as context.
+- **Coverage now counts only signals that can affect the score.** `contributorCount` and
+  `daysSinceLastRelease` were in the coverage denominator while appearing in no deduction,
+  so they could only lower confidence in a number they had no power to change (P1-5).
+  Coverage is therefore 1 whenever the category is scorable, and 0 when the push date is
+  unusable.
 
 **Engineering and Project Quality** — README (30), test configuration (30), contributing
 guide (15), project description (15), code of conduct (10).
@@ -146,6 +192,10 @@ guide (15), project description (15), code of conduct (10).
 **Dependency Health** — inventory completeness only. Deliberately thin, and weighted
 lowest, because version freshness and deprecation detection are out of scope for this
 release: no reliable free data source exists for them.
+
+Its coverage reports **1 of 3 intended dimensions** rather than the literal `1` it used to
+report, which claimed complete coverage of an analysis it performs a third of — while the
+same report's limitations section said freshness was unavailable (P1-5, P1-7).
 
 ## Activity thresholds
 

@@ -1,7 +1,9 @@
 import type {
   DependencyCoverage,
   NormalizedPackage,
+  DependencySource,
   SkipReason,
+  VersionResolution,
 } from '../../core/models/dependency.model';
 import { classifyVersion, parsePurl, toOsvEcosystem } from '../dependencies/purl';
 import { boundedString } from '../validation/external-input';
@@ -232,7 +234,27 @@ function normalizePackage(
     relationship,
     licenseConcluded: spdxPackage.licenseConcluded,
     skipReason,
+    source: 'github-sbom',
+    sourcePath: null,
+    // GitHub's dependency graph reports the versions it resolved, so an exact version
+    // here is genuinely installed. A range in an SBOM means GitHub could not resolve it
+    // either — it read the manifest and found a constraint.
+    resolution: resolutionFor(versionKind),
+    // SPDX carries no development flag, so claiming production would be invention.
+    scope: 'unknown',
   };
+}
+
+/** Maps a version string's shape onto what it means, for a resolved-graph source. */
+function resolutionFor(versionKind: ReturnType<typeof classifyVersion>): VersionResolution {
+  switch (versionKind) {
+    case 'exact':
+      return 'resolved';
+    case 'range':
+      return 'declared-range';
+    default:
+      return 'absent';
+  }
 }
 
 function determineSkipReason(
@@ -279,9 +301,14 @@ function countDuplicates(packages: readonly NormalizedPackage[]): number {
   return duplicates;
 }
 
-function computeCoverage(
+export function computeCoverage(
   packages: readonly NormalizedPackage[],
   duplicateEntries: number,
+  provenance: {
+    readonly inventorySource: DependencySource;
+    readonly transitiveCoverage: DependencyCoverage['transitiveCoverage'];
+    readonly discoveryNotes?: readonly string[];
+  } = { inventorySource: 'github-sbom', transitiveCoverage: 'full' },
 ): DependencyCoverage {
   const skippedByReason: Record<SkipReason, number> = {
     'no-purl': 0,
@@ -310,6 +337,9 @@ function computeCoverage(
     // often explains low coverage. Surfaced so the report can say so plainly.
     rangeVersionsDominant: total > 0 && skippedByReason['version-not-exact'] > total / 2,
     duplicateEntries,
+    inventorySource: provenance.inventorySource,
+    transitiveCoverage: provenance.transitiveCoverage,
+    discoveryNotes: provenance.discoveryNotes ?? [],
   };
 }
 
@@ -333,6 +363,13 @@ export function queryablePackages(
 
   for (const pkg of packages) {
     if (pkg.skipReason !== null || pkg.ecosystem === null || seen.has(pkg.key)) {
+      continue;
+    }
+    // The hard gate. A version whose shape looks exact is not necessarily installed: a
+    // NuGet `Version="13.0.1"` is the lower bound of `[13.0.1, )`. Querying OSV with a
+    // declared minimum would report advisories fixed in the version actually in use —
+    // a false positive indistinguishable from a real finding (§7.2, ADR-0002).
+    if (pkg.resolution !== 'resolved') {
       continue;
     }
     seen.add(pkg.key);

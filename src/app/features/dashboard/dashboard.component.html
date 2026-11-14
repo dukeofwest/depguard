@@ -15,7 +15,18 @@
       <p class="overall__band">{{ overall.band }}</p>
     </div>
     <div class="overall__detail">
-      <dg-coverage-bar [coverage]="overall.coverage" />
+      <!--
+        Two different measures, shown with names that distinguish them. Presenting both
+        as bare percentages made a correct report read as self-contradictory: 60% of the
+        analysis ran, and the evidence behind it was 50% complete (P1-3).
+      -->
+      <dg-coverage-bar [coverage]="overall.coverage" label="Evidence coverage" />
+      @if (overall.assessedWeight < 1) {
+        <dg-coverage-bar
+          [coverage]="overall.assessedWeight"
+          label="Categories assessed (by weight)"
+        />
+      }
       <p class="overall__explanation">{{ overall.explanation }}</p>
       <p class="overall__disclaimer">
         This is DepGuard's heuristic assessment of observable repository signals. It is not a

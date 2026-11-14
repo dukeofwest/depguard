@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseSbom, queryablePackages } from './sbom/spdx-parser';
+import { parseNpmLockfile } from './dependencies/npm-lockfile';
+import { parseXml } from './dependencies/xml';
+import {
+  declaredResolution,
+  parseCentralVersions,
+  parseNuGetLockfile,
+  parsePackagesConfig,
+  parseProjectFile,
+} from './dependencies/nuget';
 import { classifyVersion, normalizeVersionForQuery, parsePurl } from './dependencies/purl';
 import { processVulnerabilities } from './security/vulnerability-processor';
 import { checkJsonShape } from './validation/external-input';
@@ -206,6 +215,148 @@ function fuzzAdvisory(random: () => number): unknown {
   return record;
 }
 
+/**
+ * A structurally-plausible-but-corrupted `package-lock.json`.
+ *
+ * Mixes the three lockfile versions, the flat map and the nested tree, and sprays nasty
+ * scalars through the fields a parser reads.
+ */
+function fuzzNpmLockfile(random: () => number): unknown {
+  if (random() < 0.1) {
+    return pick(random, NASTY_SCALARS);
+  }
+
+  const lock: Record<string, unknown> = {};
+
+  lock['lockfileVersion'] = pick(random, [1, 2, 3, 0, 4, 99, -1, ...NASTY_SCALARS]);
+
+  if (random() < 0.8) {
+    const packages: Record<string, unknown> = {};
+    if (random() < 0.7) {
+      packages[''] = {
+        dependencies: random() < 0.7 ? { a: '^1.0.0' } : pick(random, NASTY_SCALARS),
+        devDependencies: random() < 0.5 ? { b: '~2' } : pick(random, NASTY_SCALARS),
+      };
+    }
+    const count = Math.floor(random() * 6);
+    for (let index = 0; index < count; index += 1) {
+      const key = pick(random, [
+        `node_modules/pkg-${index}`,
+        `node_modules/@scope/pkg-${index}`,
+        `packages/app/node_modules/pkg-${index}`,
+        `node_modules/a/node_modules/pkg-${index}`,
+        'node_modules/',
+        'node_modules/@scope',
+        '',
+        '__proto__',
+        'constructor',
+      ]);
+      packages[key] =
+        random() < 0.8
+          ? {
+              version: pick(random, ['1.0.0', '^1.0.0', 'latest', 'npm:x@1.0.0', ...NASTY_SCALARS]),
+              dev: pick(random, [true, false, ...NASTY_SCALARS]),
+              link: random() < 0.2 ? true : undefined,
+            }
+          : pick(random, NASTY_SCALARS);
+    }
+    lock['packages'] = random() < 0.9 ? packages : pick(random, NASTY_SCALARS);
+  }
+
+  if (random() < 0.5) {
+    lock['dependencies'] =
+      random() < 0.8
+        ? {
+            express: {
+              version: pick(random, ['4.18.2', ...NASTY_SCALARS]),
+              dependencies:
+                random() < 0.5 ? { ms: { version: '2.1.3' } } : pick(random, NASTY_SCALARS),
+            },
+          }
+        : pick(random, NASTY_SCALARS);
+  }
+
+  return lock;
+}
+
+/** XML fragments, from well-formed MSBuild through to hostile and malformed. */
+function fuzzXml(random: () => number): string {
+  const pieces: readonly string[] = [
+    '<Project Sdk="Microsoft.NET.Sdk">',
+    '<ItemGroup>',
+    '<PackageReference Include="A" Version="1.0.0" />',
+    '<PackageReference Include="B"><Version>2.0.0</Version></PackageReference>',
+    '<PackageReference Include="C" Version="$(Undefined)" />',
+    '<PackageReference Include="D" Version="[1.0.0]" />',
+    '<PackageReference Version="1.0.0" />',
+    '<PackageVersion Include="E" Version="3.0.0" />',
+    '<package id="F" version="1.2.3" />',
+    '<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>',
+    '</ItemGroup>',
+    '</Project>',
+    '<!-- comment -->',
+    '<![CDATA[ raw ]]>',
+    '<?xml version="1.0"?>',
+    '<!DOCTYPE p>',
+    '<!ENTITY e "x">',
+    '&custom;',
+    '&lt;&amp;',
+    '&#65;',
+    '&#xD800;',
+    '<a attr=unquoted />',
+    '<a attr />',
+    '<unclosed>',
+    '</mismatched>',
+    '<>',
+    '<a/>'.repeat(5),
+    `<deep>${'<n>'.repeat(10)}`,
+    'plain text',
+    '',
+    `<a b="${'x'.repeat(100)}" />`,
+  ];
+
+  const count = 1 + Math.floor(random() * 8);
+  let xml = '';
+  for (let index = 0; index < count; index += 1) {
+    xml += pick(random, pieces);
+  }
+  return xml;
+}
+
+/** A corrupted `packages.lock.json`. */
+function fuzzNuGetLock(random: () => number): unknown {
+  if (random() < 0.15) {
+    return pick(random, NASTY_SCALARS);
+  }
+
+  const dependencies: Record<string, unknown> = {};
+  const frameworks = ['.NETCoreApp,Version=v8.0', 'net48', '', '__proto__'];
+  const count = 1 + Math.floor(random() * 3);
+
+  for (let index = 0; index < count; index += 1) {
+    const framework = pick(random, frameworks);
+    if (random() < 0.85) {
+      dependencies[framework] = {
+        [`Pkg.${index}`]:
+          random() < 0.85
+            ? {
+                type: pick(random, ['Direct', 'Transitive', 'Project', ...NASTY_SCALARS]),
+                requested: pick(random, ['[1.0.0, )', ...NASTY_SCALARS]),
+                resolved: pick(random, ['1.0.0', '1.0', '1.0.0.0', ...NASTY_SCALARS]),
+              }
+            : pick(random, NASTY_SCALARS),
+      };
+    } else {
+      dependencies[framework] = pick(random, NASTY_SCALARS);
+    }
+  }
+
+  return {
+    version: pick(random, [1, 2, ...NASTY_SCALARS]),
+    dependencies: random() < 0.9 ? dependencies : pick(random, NASTY_SCALARS),
+  };
+}
+
 const ITERATIONS = 400;
 
 describe('parser fuzzing', () => {
@@ -324,6 +475,119 @@ describe('parser fuzzing', () => {
     for (let i = 0; i < ITERATIONS; i++) {
       const input = fuzzSbom(random);
       expect(() => checkJsonShape(input), `iteration ${i}`).not.toThrow();
+    }
+  });
+
+  // ---- npm lockfiles (Phase C) -------------------------------------------
+
+  it('parseNpmLockfile returns a result for every input, and never throws', () => {
+    const random = makeRandom(0x10cc);
+    for (let i = 0; i < ITERATIONS; i++) {
+      const input = fuzzNpmLockfile(random);
+      let result;
+      try {
+        result = parseNpmLockfile(input, 'package-lock.json', 'package-lock.json');
+      } catch (error) {
+        throw new Error(
+          `parseNpmLockfile threw on iteration ${i}: ${String(error)}\ninput: ${safeStringify(input)}`,
+          { cause: error },
+        );
+      }
+      expect(['parsed', 'invalid', 'unsupported'], `iteration ${i}`).toContain(result.kind);
+
+      if (result.kind === 'parsed') {
+        // The invariant that protects every downstream consumer: nothing non-resolved is
+        // ever queryable, whatever the lockfile said.
+        for (const pkg of queryablePackages(result.packages)) {
+          expect(pkg.resolution, `iteration ${i}`).toBe('resolved');
+          expect(pkg.versionKind, `iteration ${i}`).toBe('exact');
+        }
+        expect(result.coverage.totalPackages).toBe(result.packages.length);
+        expect(result.coverage.queryableRatio).toBeGreaterThanOrEqual(0);
+        expect(result.coverage.queryableRatio).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  // ---- NuGet (Phase D) ---------------------------------------------------
+
+  it('parseXml returns a result for every input, and never throws', () => {
+    const random = makeRandom(0x5bee);
+    for (let i = 0; i < ITERATIONS; i++) {
+      const input = fuzzXml(random);
+      let result;
+      try {
+        result = parseXml(input);
+      } catch (error) {
+        throw new Error(
+          `parseXml threw on iteration ${i}: ${String(error)}\ninput: ${input.slice(0, 300)}`,
+          { cause: error },
+        );
+      }
+      expect(['parsed', 'rejected'], `iteration ${i}`).toContain(result.kind);
+    }
+  });
+
+  it('parseXml terminates quickly on pathological input', () => {
+    // Shapes chosen to provoke quadratic scanning or runaway entity handling.
+    const pathological = [
+      '<a '.repeat(20_000),
+      `<a attr="${'&'.repeat(20_000)}" />`,
+      `<a>${'&lt;'.repeat(20_000)}</a>`,
+      `<a>${'x'.repeat(200_000)}</a>`,
+      '<'.repeat(50_000),
+      `<a ${'b="c" '.repeat(5_000)}/>`,
+      `${'<!-- '.repeat(10_000)}<a />`,
+    ];
+
+    for (const input of pathological) {
+      const started = performance.now();
+      parseXml(input);
+      const elapsed = performance.now() - started;
+      expect(elapsed, `${input.slice(0, 20)}… took ${elapsed.toFixed(1)}ms`).toBeLessThan(500);
+    }
+  });
+
+  it('NuGet parsers return a result for every input, and never throw', () => {
+    const random = makeRandom(0xd0d);
+    for (let i = 0; i < ITERATIONS; i++) {
+      const xml = fuzzXml(random);
+      const json = fuzzNuGetLock(random);
+
+      expect(
+        () => parseProjectFile(xml, 'A.csproj', 'csproj', null),
+        `iteration ${i}`,
+      ).not.toThrow();
+      expect(() => parsePackagesConfig(xml, 'packages.config'), `iteration ${i}`).not.toThrow();
+      expect(
+        () => parseCentralVersions(xml, 'Directory.Packages.props'),
+        `iteration ${i}`,
+      ).not.toThrow();
+      expect(() => parseNuGetLockfile(json, 'packages.lock.json'), `iteration ${i}`).not.toThrow();
+
+      // The rule the whole .NET implementation turns on, asserted against random input:
+      // a declared version must never become queryable.
+      const project = parseProjectFile(xml, 'A.csproj', 'csproj', null);
+      if (project.kind === 'parsed') {
+        for (const pkg of queryablePackages(project.packages)) {
+          expect(pkg.resolution, `iteration ${i}: ${pkg.declaredVersion}`).toBe('resolved');
+        }
+      }
+    }
+  });
+
+  it('never classifies a bare NuGet version as resolved, for any version string', () => {
+    // Exhaustive over the forms a version attribute can take. A bare version is a
+    // minimum; only the bracketed single value pins.
+    const bare = ['1', '1.0', '1.0.0', '1.0.0.0', '1.0.0-beta', '13.0.1', 'v1.0.0'];
+    for (const version of bare) {
+      expect(declaredResolution(version), version).not.toBe('resolved');
+    }
+    for (const version of bare) {
+      const exact = `[${version}]`;
+      // Bracketed forms are resolved only when the inner value is a concrete version.
+      const expected = classifyVersion(version) === 'exact' ? 'resolved' : 'declared-range';
+      expect(declaredResolution(exact), exact).toBe(expected);
     }
   });
 

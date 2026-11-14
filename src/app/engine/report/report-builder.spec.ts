@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildReport, type BuildReportInput } from './report-builder';
+import { REPORT_SCHEMA_VERSION } from './schema';
 import { parseSbom } from '../sbom/spdx-parser';
 import expressSbom from '../__fixtures__/sbom-express.json';
 import requestRequestSbom from '../__fixtures__/sbom-request-request.json';
@@ -80,7 +81,13 @@ function snapshot(partial: Partial<RepositorySnapshot> = {}): RepositorySnapshot
     weeklyCommits: [1, 2, 3],
     fileContents: {
       '.github/dependabot.yml': 'version: 2\nupdates:\n  - package-ecosystem: npm\n',
+      // Workflow contents are fetched now, because the CodeQL check reads the file
+      // rather than trusting its name (P1-10).
+      '.github/workflows/ci.yml': 'name: CI\njobs:\n  test:\n    steps:\n      - run: npm test\n',
+      '.github/workflows/codeql.yml':
+        'name: CodeQL\njobs:\n  analyze:\n    steps:\n      - uses: github/codeql-action/init@v3\n      - uses: github/codeql-action/analyze@v3\n',
     },
+    sourceStates: {},
     retrievedAt: '2026-11-13T12:00:00.000Z',
     ...partial,
   };
@@ -322,7 +329,7 @@ describe('buildReport', () => {
     });
 
     it('carries a schema version', () => {
-      expect(report.schemaVersion).toBe('1.0.0');
+      expect(report.schemaVersion).toBe(REPORT_SCHEMA_VERSION);
     });
 
     it('contains no credentials or tokens (§7.3)', () => {
@@ -395,6 +402,10 @@ describe('buildReport', () => {
             relationship: 'unknown',
             licenseConcluded: null,
             skipReason: null,
+            source: 'github-sbom',
+            sourcePath: null,
+            resolution: 'resolved',
+            scope: 'unknown',
           },
         ],
       });

@@ -133,6 +133,10 @@ describeLive('live analysis pipeline', () => {
       relationship: 'unknown',
       licenseConcluded: null,
       skipReason: null,
+      source: 'github-sbom',
+      sourcePath: null,
+      resolution: 'resolved',
+      scope: 'unknown',
     };
     const patched: NormalizedPackage = {
       ...vulnerable,
@@ -171,6 +175,10 @@ describeLive('live analysis pipeline', () => {
       relationship: 'unknown',
       licenseConcluded: null,
       skipReason: null,
+      source: 'github-sbom',
+      sourcePath: null,
+      resolution: 'resolved',
+      scope: 'unknown',
     };
 
     const { records, matches } = await queryOsv([safe]);

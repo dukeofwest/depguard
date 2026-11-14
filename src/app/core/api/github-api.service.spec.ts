@@ -1,5 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import {
+  HttpEventType,
+  HttpHeaderResponse,
+  HttpHeaders,
+  provideHttpClient,
+} from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -7,7 +12,8 @@ import {
 } from '@angular/common/http/testing';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
-import { GithubApiService } from './github-api.service';
+import { GithubApiService, type RawFileOutcome } from './github-api.service';
+import { RESPONSE_LIMITS } from '../config/api.config';
 import { CacheService } from '../services/cache.service';
 import { RateLimitService } from '../services/rate-limit.service';
 import type { AppError } from '../models/api-error.model';
@@ -358,13 +364,32 @@ describe('GithubApiService', () => {
       expect(release).toBeNull();
     });
 
-    it('treats a 202 from commit stats as unknown, never as zero commits', () => {
+    it('reports a 202 from commit stats as pending, never as zero commits', () => {
       let commits: unknown = 'untouched';
       service.getWeeklyCommits(REF).subscribe((value) => (commits = value));
       httpMock
         .expectOne(`${REPO_URL}/stats/commit_activity`)
         .flush(null, { status: 202, statusText: 'Accepted' });
-      expect(commits).toBeNull();
+      // `pending` rather than `unavailable`: GitHub accepted the request and is still
+      // computing. Collapsing the two was what let a young repository's unbuilt
+      // statistics look like a retrieval failure (P1-6).
+      expect(commits).toEqual({ kind: 'pending' });
+    });
+
+    it('distinguishes a failed stats request from a pending one', () => {
+      let commits: unknown = 'untouched';
+      service.getWeeklyCommits(REF).subscribe((value) => (commits = value));
+      httpMock
+        .expectOne(`${REPO_URL}/stats/commit_activity`)
+        .flush('', { status: 404, statusText: 'Not Found' });
+      expect(commits).toEqual({ kind: 'unavailable' });
+    });
+
+    it('returns the weekly totals when GitHub has computed them', () => {
+      let commits: unknown = null;
+      service.getWeeklyCommits(REF).subscribe((value) => (commits = value));
+      httpMock.expectOne(`${REPO_URL}/stats/commit_activity`).flush([{ total: 3 }, { total: 0 }]);
+      expect(commits).toEqual({ kind: 'available', weeks: [3, 0] });
     });
 
     it('derives the contributor count from the Link header', () => {
@@ -498,6 +523,157 @@ describe('GithubApiService', () => {
       httpMock.expectOne((r) => r.url.includes('SECURITY.md')).flush('x'.repeat(2_000_000));
 
       expect((content as unknown as string).length).toBe(512 * 1024);
+    });
+  });
+
+  describe('getBoundedRawFile', () => {
+    const URL = 'https://raw.githubusercontent.com/expressjs/express/main/package-lock.json';
+
+    /** Collects the single outcome, so each test can assert on what was consumed. */
+    function fetch(limit: number): { outcome: () => RawFileOutcome } {
+      let value: RawFileOutcome | null = null;
+      service
+        .getBoundedRawFile(REF, 'main', 'package-lock.json', limit)
+        .subscribe((v) => (value = v));
+      return {
+        outcome: () => {
+          if (value === null) throw new Error('no outcome');
+          return value as RawFileOutcome;
+        },
+      };
+    }
+
+    it('reports the bytes a successful transfer consumed', () => {
+      const pending = fetch(1000);
+      const request = httpMock.expectOne(URL);
+
+      // What a backend reporting progress looks like: `loaded` is wire bytes.
+      request.event({ type: HttpEventType.DownloadProgress, loaded: 12, partialText: '{"a":1}' });
+      request.flush('{"a":1}');
+
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('text');
+      if (outcome.kind !== 'text') return;
+      expect(outcome.text).toBe('{"a":1}');
+      // The progress counter is preferred over the decoded string's length, because the
+      // budget is spent in bytes received, not in characters kept.
+      expect(outcome.consumed).toBe(12);
+    });
+
+    it('aborts the transfer mid-body once the allowance is exceeded', () => {
+      const pending = fetch(1000);
+      const request = httpMock.expectOne(URL);
+
+      request.event({ type: HttpEventType.DownloadProgress, loaded: 600, partialText: 'x' });
+      expect(request.cancelled).toBe(false);
+
+      // The chunk that crosses the allowance ends the transfer. This is the difference
+      // between a download limit and a post-hoc check: the remaining bytes are never
+      // received at all.
+      request.event({ type: HttpEventType.DownloadProgress, loaded: 1400, partialText: 'xx' });
+
+      expect(request.cancelled).toBe(true);
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('over-limit');
+      if (outcome.kind !== 'over-limit') return;
+      expect(outcome.limit).toBe(1000);
+      expect(outcome.consumed).toBe(1400);
+      expect(outcome.announced).toBeNull();
+    });
+
+    it('refuses an oversized file on its Content-Length, before reading the body', () => {
+      const pending = fetch(1000);
+      const request = httpMock.expectOne(URL);
+
+      request.event(
+        new HttpHeaderResponse({
+          headers: new HttpHeaders({ 'Content-Length': '9000000' }),
+          status: 200,
+          url: URL,
+        }),
+      );
+
+      expect(request.cancelled).toBe(true);
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('over-limit');
+      if (outcome.kind !== 'over-limit') return;
+      // Nothing was downloaded, so nothing is charged — the caller's budget must not be
+      // debited for a file it never received.
+      expect(outcome.consumed).toBe(0);
+      expect(outcome.announced).toBe(9_000_000);
+    });
+
+    it('still bounds a backend that reports no progress at all', () => {
+      const pending = fetch(1000);
+      // No progress events: the assembled body is the only thing to measure.
+      httpMock.expectOne(URL).flush('x'.repeat(1001));
+
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('over-limit');
+      if (outcome.kind !== 'over-limit') return;
+      expect(outcome.consumed).toBe(1001);
+    });
+
+    it('measures the fallback in encoded bytes, not UTF-16 code units', () => {
+      // 400 astral characters: 800 code units, 1,600 UTF-8 bytes. Measured as a string
+      // length this is comfortably inside a 1,000-byte allowance; measured as the bytes
+      // it actually occupies on the wire it is 60% over. Without progress events, the
+      // string is all there is to measure, so the unit has to be the right one — this is
+      // the difference between a bound that holds for any text and one that holds only
+      // for ASCII.
+      const astral = '\u{1D11E}'.repeat(400);
+      expect(astral.length).toBe(800);
+      expect(new TextEncoder().encode(astral).length).toBe(1600);
+
+      const pending = fetch(1000);
+      httpMock.expectOne(URL).flush(astral);
+
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('over-limit');
+      if (outcome.kind !== 'over-limit') return;
+      expect(outcome.consumed).toBe(1600);
+    });
+
+    it('charges a successful transfer in bytes when no progress was reported', () => {
+      // The same unit on the accepting path: a caller's aggregate budget is debited in
+      // bytes received, so an accepted body must not be charged as code units either.
+      const pending = fetch(1000);
+      // 'é' is one code unit and two UTF-8 bytes.
+      httpMock.expectOne(URL).flush('é'.repeat(100));
+
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('text');
+      if (outcome.kind !== 'text') return;
+      expect(outcome.text.length).toBe(100);
+      expect(outcome.consumed).toBe(200);
+    });
+
+    it('never exceeds the standing per-file cap, whatever the caller asks for', () => {
+      const pending = fetch(Number.MAX_SAFE_INTEGER);
+      httpMock.expectOne(URL).flush('x'.repeat(RESPONSE_LIMITS.maxFileContentBytes + 1));
+
+      const outcome = pending.outcome();
+      expect(outcome.kind).toBe('over-limit');
+      if (outcome.kind !== 'over-limit') return;
+      expect(outcome.limit).toBe(RESPONSE_LIMITS.maxFileContentBytes);
+    });
+
+    it('treats a missing file as data, not as an error', () => {
+      const pending = fetch(1000);
+      httpMock.expectOne(URL).flush('Not Found', { status: 404, statusText: 'Not Found' });
+
+      expect(pending.outcome().kind).toBe('missing');
+    });
+
+    it('does not serve a result fetched under a larger allowance', () => {
+      // The allowance is part of the cache identity. Otherwise a file read in full early
+      // in a scan could be replayed to a later caller whose budget could not afford it.
+      fetch(RESPONSE_LIMITS.maxFileContentBytes);
+      httpMock.expectOne(URL).flush('{"a":1}');
+
+      fetch(500);
+      // A second request, rather than a cache hit.
+      httpMock.expectOne(URL).flush('{"a":1}');
     });
   });
 });

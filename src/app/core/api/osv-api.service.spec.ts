@@ -24,6 +24,10 @@ function pkg(
     relationship: 'unknown',
     licenseConcluded: null,
     skipReason: null,
+    source: 'github-sbom',
+    sourcePath: null,
+    resolution: 'resolved',
+    scope: 'unknown',
     ...overrides,
   };
 }
@@ -214,8 +218,88 @@ describe('OsvApiService', () => {
       .expectOne('https://api.osv.dev/v1/vulns/GHSA-2')
       .flush({}, { status: 500, statusText: 'Error' });
 
+    const value = result as unknown as OsvQueryResult;
+
     // One lost record must not discard the other.
-    expect((result as unknown as OsvQueryResult).records).toHaveLength(1);
+    expect(value.records).toHaveLength(1);
+
+    // ...but the loss must be disclosed. This file originally asserted only the line
+    // above, which is why P0-1 survived: the service behaved as tested while the report
+    // it fed went on to claim no vulnerabilities were found.
+    expect(value.advisoriesUnretrieved).toEqual(['GHSA-2']);
+    expect(value.failureReason).toContain('GHSA-2');
+  });
+
+  it('reports a failure reason naming every advisory whose detail was lost', () => {
+    let result: OsvQueryResult | null = null;
+    service.queryPackages([pkg('a', '1.0.0')]).subscribe((value) => (result = value));
+
+    httpMock
+      .expectOne(BATCH_URL)
+      .flush({ results: [{ vulns: [{ id: 'GHSA-1' }, { id: 'GHSA-2' }] }] });
+
+    httpMock
+      .expectOne('https://api.osv.dev/v1/vulns/GHSA-1')
+      .flush({}, { status: 500, statusText: 'Error' });
+    httpMock
+      .expectOne('https://api.osv.dev/v1/vulns/GHSA-2')
+      .flush({}, { status: 500, statusText: 'Error' });
+
+    const value = result as unknown as OsvQueryResult;
+    expect(value.records).toHaveLength(0);
+    // Sorted, so the reason is stable regardless of completion order.
+    expect(value.advisoriesUnretrieved).toEqual(['GHSA-1', 'GHSA-2']);
+    expect(value.failureReason).toContain('not evidence that the affected dependencies are safe');
+  });
+
+  it('treats an unreadable advisory body as a lost detail, not as a record', () => {
+    let result: OsvQueryResult | null = null;
+    service.queryPackages([pkg('a', '1.0.0')]).subscribe((value) => (result = value));
+
+    httpMock.expectOne(BATCH_URL).flush({ results: [{ vulns: [{ id: 'GHSA-1' }] }] });
+    // A 200 carrying malformed JSON: the advisory is confirmed and its details are
+    // unavailable, which is the same situation as a transport failure.
+    httpMock.expectOne('https://api.osv.dev/v1/vulns/GHSA-1').flush('{not json');
+
+    const value = result as unknown as OsvQueryResult;
+    expect(value.records).toHaveLength(0);
+    expect(value.advisoriesUnretrieved).toEqual(['GHSA-1']);
+  });
+
+  it('does not report a failure when every detail is retrieved', () => {
+    let result: OsvQueryResult | null = null;
+    service.queryPackages([pkg('a', '1.0.0')]).subscribe((value) => (result = value));
+
+    httpMock.expectOne(BATCH_URL).flush({ results: [{ vulns: [{ id: 'GHSA-1' }] }] });
+    httpMock.expectOne('https://api.osv.dev/v1/vulns/GHSA-1').flush({ id: 'GHSA-1' });
+
+    const value = result as unknown as OsvQueryResult;
+    expect(value.advisoriesUnretrieved).toEqual([]);
+    expect(value.failureReason).toBeNull();
+  });
+
+  it('distinguishes a capped omission from a failed retrieval', () => {
+    let result: OsvQueryResult | null = null;
+    service.queryPackages([pkg('a', '1.0.0')]).subscribe((value) => (result = value));
+
+    const ids = Array.from({ length: OSV_LIMITS.maxDetailRequests + 2 }, (_, i) => ({
+      id: `GHSA-${i}`,
+    }));
+    httpMock.expectOne(BATCH_URL).flush({ results: [{ vulns: ids }] });
+
+    let wave = httpMock.match((r) => r.url.includes('/v1/vulns/'));
+    while (wave.length > 0) {
+      for (const request of wave) {
+        request.flush({ id: 'x' });
+      }
+      wave = httpMock.match((r) => r.url.includes('/v1/vulns/'));
+    }
+
+    const value = result as unknown as OsvQueryResult;
+    // Omitted by policy, not lost in transit: the two must not be conflated.
+    expect(value.advisoriesOmitted).toBe(2);
+    expect(value.advisoriesUnretrieved).toEqual([]);
+    expect(value.failureReason).toContain('not retrieved, to bound the number of requests');
   });
 
   it('caps the number of advisory detail requests', () => {

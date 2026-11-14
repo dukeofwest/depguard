@@ -173,14 +173,38 @@ function collectLimitations(input: BuildReportInput): readonly AnalysisLimitatio
     },
   ];
 
+  const coverage = input.dependencyCoverage;
+
   if (input.sbomUnavailableReason !== null) {
     limitations.push({
       scope: 'Dependency inventory',
-      detail: `${input.sbomUnavailableReason} Dependency and vulnerability analysis could not be performed.`,
+      // Two different situations share this field: the graph was unavailable and nothing
+      // replaced it, or the graph was unavailable and a lockfile did. Saying "analysis
+      // could not be performed" in the second case would contradict the inventory sitting
+      // beside it in the same report.
+      detail:
+        coverage === null
+          ? `${input.sbomUnavailableReason} Dependency and vulnerability analysis could not be performed.`
+          : input.sbomUnavailableReason,
     });
   }
 
-  const coverage = input.dependencyCoverage;
+  // §5.7: never claim transitive coverage the parsed files cannot support.
+  if (coverage !== null && coverage.transitiveCoverage !== 'full') {
+    limitations.push({
+      scope: 'Transitive dependencies',
+      detail:
+        coverage.transitiveCoverage === 'none'
+          ? 'This inventory lists only directly declared dependencies. The packages they depend on in turn were not discovered, so the dependency count and vulnerability results cover only part of what this project installs.'
+          : 'Only part of the transitive dependency graph could be read, so the dependency count and vulnerability results are incomplete.',
+    });
+  }
+
+  // Parse limitations, truncated files and skipped entries, each already phrased for a
+  // reader by the parser that found it.
+  for (const note of coverage?.discoveryNotes ?? []) {
+    limitations.push({ scope: 'Dependency discovery', detail: note });
+  }
   if (coverage !== null && coverage.queryablePackages < coverage.totalPackages) {
     limitations.push({
       scope: 'Dependency coverage',

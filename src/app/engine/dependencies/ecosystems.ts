@@ -25,10 +25,31 @@ export const PURL_TYPE_TO_ECOSYSTEM: Readonly<Record<string, OsvEcosystem>> = {
 } as const;
 
 /**
- * Ecosystems verified against live SBOM data in Phase 0.
+ * Ecosystems whose **vulnerability matching** has been verified against live OSV data.
  *
- * Only `npm` and `PyPI` were actually observed. The rest are mapped on documentation
- * alone, and §5.2 forbids claiming ecosystem support that has not been demonstrated — so
- * the report states which ecosystems are verified rather than implying parity.
+ * This is deliberately narrow, and it is one of four separate questions that must not be
+ * conflated (P2-5):
+ *
+ * 1. **OSV query compatibility** — does OSV answer correctly for this ecosystem's package
+ *    identities and version strings? That is what this list records.
+ * 2. **SBOM ingestion** — can DepGuard normalise this ecosystem out of GitHub's
+ *    dependency graph? True for every entry in `PURL_TYPE_TO_ECOSYSTEM`.
+ * 3. **Manifest parsing** — can DepGuard read this ecosystem's files directly? Only npm
+ *    and NuGet, and see `docs/audits/DEPENDENCY-ECOSYSTEM-SUPPORT.md` for which files.
+ * 4. **Resolved-version discovery** — can DepGuard obtain versions that are actually
+ *    installed? npm always (lockfiles record them); NuGet only from `packages.lock.json`
+ *    or `packages.config`, never from a `.csproj`.
+ *
+ * `npm` and `PyPI` were observed in live SBOMs in Phase 0. `NuGet` was added in the
+ * November 2026 remediation on the strength of direct measurement against
+ * `POST /v1/querybatch`: `Newtonsoft.Json`, `newtonsoft.json` and `NEWTONSOFT.JSON` at
+ * 9.0.1 all returned `GHSA-5crp-9r3c-p9vr`, and both two- and four-part version strings
+ * matched — so OSV normalises NuGet ids case-insensitively and normalises versions, and
+ * DepGuard needs no normalisation of its own. Those measurements are regression-tested in
+ * `nuget.spec.ts`.
+ *
+ * Being on this list does **not** mean an ecosystem's dependencies can be discovered, and
+ * the report says so separately. The remaining mappings rest on documentation alone, and
+ * §5.2 forbids claiming support that has not been demonstrated.
  */
-export const VERIFIED_ECOSYSTEMS: readonly OsvEcosystem[] = ['npm', 'PyPI'] as const;
+export const VERIFIED_ECOSYSTEMS: readonly OsvEcosystem[] = ['npm', 'PyPI', 'NuGet'] as const;

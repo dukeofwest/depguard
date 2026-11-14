@@ -2,7 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import {
   HttpClient,
   HttpErrorResponse,
+  HttpEventType,
   HttpHeaders,
+  type HttpEvent,
   type HttpResponse,
 } from '@angular/common/http';
 import { Observable, catchError, map, of, retry, throwError, timeout, timer } from 'rxjs';
@@ -21,6 +23,7 @@ import type {
   RepositoryMetadata,
   RepositoryRef,
   RepositoryTree,
+  WeeklyCommits,
   WorkflowSummary,
 } from '../models/repository.model';
 import { encodeRef } from '../utils/github-url';
@@ -41,6 +44,36 @@ import {
   toWeeklyCommits,
   toWorkflowSummaries,
 } from './github-response';
+
+/**
+ * The result of a byte-bounded raw-content fetch.
+ *
+ * `consumed` is present on every variant and is what a caller charges to an aggregate
+ * budget: bytes actually received before the transfer ended, whether it ended by
+ * completing, by being refused, or by being aborted mid-body.
+ */
+export type RawFileOutcome =
+  | {
+      /** No such file on this branch, or an empty body. */
+      readonly kind: 'missing';
+      readonly consumed: number;
+    }
+  | {
+      readonly kind: 'text';
+      readonly text: string;
+      readonly consumed: number;
+    }
+  | {
+      /**
+       * The allowance was exceeded, so the transfer was abandoned and no body is
+       * returned. `announced` is the server's `Content-Length` when that is what refused
+       * the file before its body was read, and null when the bytes received did.
+       */
+      readonly kind: 'over-limit';
+      readonly limit: number;
+      readonly consumed: number;
+      readonly announced: number | null;
+    };
 
 /**
  * GitHub REST client.
@@ -200,13 +233,22 @@ export class GithubApiService {
    * never as zero commits. It is deliberately not polled: the result is a secondary
    * signal and polling would spend scarce quota.
    */
-  getWeeklyCommits(ref: RepositoryRef): Observable<readonly number[] | null> {
+  getWeeklyCommits(ref: RepositoryRef): Observable<WeeklyCommits> {
     const { owner, repo } = encodeRef(ref);
     return this.getJson(`${GITHUB_API_ORIGIN}/repos/${owner}/${repo}/stats/commit_activity`).pipe(
       this.nullOn404(),
-      map((response) =>
-        response === null || response.status === 202 ? null : toWeeklyCommits(response.body),
-      ),
+      map((response): WeeklyCommits => {
+        if (response === null) {
+          return { kind: 'unavailable' };
+        }
+        // 202 means "accepted, still computing" — reported as pending so a young
+        // repository's unbuilt statistics are never read as zero activity (P1-6).
+        if (response.status === 202) {
+          return { kind: 'pending' };
+        }
+        const weeks = toWeeklyCommits(response.body);
+        return weeks === null ? { kind: 'unavailable' } : { kind: 'available', weeks };
+      }),
     );
   }
 
@@ -221,15 +263,9 @@ export class GithubApiService {
    * repository content is never fetched (§9.2).
    */
   getRawFile(ref: RepositoryRef, branch: string, path: string): Observable<string | null> {
-    const { owner, repo } = encodeRef(ref);
-    const safePath = path
-      .split('/')
-      .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
-      .map(encodeURIComponent)
-      .join('/');
-    const url = `${GITHUB_RAW_ORIGIN}/${owner}/${repo}/${encodeURIComponent(branch)}/${safePath}`;
+    const url = this.rawFileUrl(ref, branch, path);
 
-    if (!isAllowedUrl(url)) {
+    if (url === null) {
       return throwError(() =>
         createAppError('internal', 'DepGuard tried to contact an unexpected address.'),
       );
@@ -260,7 +296,171 @@ export class GithubApiService {
     );
   }
 
+  /**
+   * Fetches one allowlisted file under an explicit byte allowance, aborting the transfer
+   * if the allowance is exceeded.
+   *
+   * ## Why this exists alongside `getRawFile`
+   *
+   * `getRawFile` reads the body and *then* truncates it. That bounds how much DepGuard
+   * keeps, not how much it downloads, which is adequate for the four fixed paths and the
+   * workflow files but not for dependency discovery: there the per-file cap has to
+   * compose with an aggregate budget across up to 32 files, and a cap applied after the
+   * fact cannot bound an aggregate at all.
+   *
+   * So this one enforces its allowance **while consuming the response**:
+   *
+   * 1. `Content-Length`, when present, is compared against the allowance before the body
+   *    is read, so an oversized file costs one set of headers and nothing more.
+   * 2. Download-progress events are watched as chunks arrive, and the transfer is
+   *    abandoned the moment the bytes received exceed the allowance. Completing the
+   *    subscriber tears down the inner subscription, which aborts the `fetch` — so the
+   *    bound is "the allowance plus at most one chunk", not the file's full size.
+   * 3. The assembled body is re-checked, as a backstop for a backend that reports no
+   *    progress at all.
+   *
+   * `consumed` on every outcome is what the caller must charge to its budget: bytes
+   * actually received, taken from the progress events' `loaded` counter rather than from
+   * the decoded string's length, so the accounting is in wire bytes.
+   */
+  getBoundedRawFile(
+    ref: RepositoryRef,
+    branch: string,
+    path: string,
+    limitBytes: number,
+  ): Observable<RawFileOutcome> {
+    const url = this.rawFileUrl(ref, branch, path);
+
+    if (url === null) {
+      return throwError(() =>
+        createAppError('internal', 'DepGuard tried to contact an unexpected address.'),
+      );
+    }
+
+    // Never above the standing per-file cap, whatever the caller asks for, and never
+    // negative — a caller with no allowance left should not be issuing a request at all,
+    // but a zero allowance must not become an unbounded one.
+    const limit = Math.max(
+      0,
+      Math.min(Math.floor(limitBytes), RESPONSE_LIMITS.maxFileContentBytes),
+    );
+
+    // The allowance is part of the cache key: the same file read under a smaller
+    // allowance is a different, possibly refused, result, and must not be served from a
+    // request made under a larger one.
+    return this.cache.getOrCreate(`raw:${limit}:${url}`, () => this.streamBounded(url, limit));
+  }
+
   // ---- Internals -------------------------------------------------------
+
+  /**
+   * The validated raw-content URL for a repository path, or null if it would leave the
+   * allowlisted origin.
+   *
+   * The path is still filtered segment by segment and percent-encoded, so a traversal
+   * segment cannot survive even if the caller's own allowlist were bypassed.
+   */
+  private rawFileUrl(ref: RepositoryRef, branch: string, path: string): string | null {
+    const { owner, repo } = encodeRef(ref);
+    const safePath = path
+      .split('/')
+      .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+      .map(encodeURIComponent)
+      .join('/');
+    const url = `${GITHUB_RAW_ORIGIN}/${owner}/${repo}/${encodeURIComponent(branch)}/${safePath}`;
+
+    return isAllowedUrl(url) ? url : null;
+  }
+
+  /** The bounded transfer itself. Never throws for a 404; see `getBoundedRawFile`. */
+  private streamBounded(url: string, limit: number): Observable<RawFileOutcome> {
+    return new Observable<RawFileOutcome>((subscriber) => {
+      let received = 0;
+      let partial = '';
+      let settled = false;
+
+      /**
+       * Emits once and completes. Completing runs this Observable's teardown, which
+       * unsubscribes the inner request — and that is what aborts an over-limit transfer
+       * rather than merely ignoring its result.
+       */
+      const settle = (outcome: RawFileOutcome): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        subscriber.next(outcome);
+        subscriber.complete();
+      };
+
+      const subscription = this.http
+        .get(url, { observe: 'events', reportProgress: true, responseType: 'text' })
+        .pipe(timeout(RESPONSE_LIMITS.requestTimeoutMs))
+        .subscribe({
+          next: (event: HttpEvent<string>) => {
+            if (event.type === HttpEventType.ResponseHeader) {
+              const header = event.headers.get('Content-Length');
+              const announced = header === null ? Number.NaN : Number(header);
+              if (Number.isFinite(announced) && announced > limit) {
+                // The server's own claim about its size. Believing it here only ever
+                // refuses early; a server that understates it is still caught below.
+                settle({ kind: 'over-limit', limit, consumed: 0, announced });
+              }
+              return;
+            }
+
+            if (event.type === HttpEventType.DownloadProgress) {
+              received = Math.max(received, event.loaded);
+              partial = event.partialText ?? partial;
+              if (received > limit || partial.length > limit) {
+                settle({ kind: 'over-limit', limit, consumed: received, announced: null });
+              }
+              return;
+            }
+
+            if (event.type === HttpEventType.Response) {
+              const body = event.body;
+              if (body === null) {
+                settle({ kind: 'missing', consumed: received });
+                return;
+              }
+              // Backstop for a backend that emitted no progress events. Measured as
+              // **encoded UTF-8 bytes**, not as the string's length: `String.length`
+              // counts UTF-16 code units, which undercounts every character outside the
+              // BMP by half and would let a file of astral characters consume up to
+              // twice its allowance whenever progress reporting was unavailable. The
+              // bound must not depend on the backend being chatty.
+              received = Math.max(received, utf8ByteLength(body));
+              if (received > limit) {
+                settle({ kind: 'over-limit', limit, consumed: received, announced: null });
+                return;
+              }
+              settle({ kind: 'text', text: body, consumed: received });
+            }
+          },
+          error: (error: unknown) => {
+            // A missing file is the expected case for most of the allowlist, so 404 is
+            // data rather than an error.
+            if (error instanceof HttpErrorResponse && error.status === 404) {
+              settle({ kind: 'missing', consumed: received });
+              return;
+            }
+            if (!settled) {
+              settled = true;
+              subscriber.error(this.toAppError(error));
+            }
+          },
+          complete: () => {
+            // A response that produced no event this method recognises. Treated as
+            // absent rather than as empty content, so nothing downstream reads a
+            // zero-length manifest as a real one.
+            settle({ kind: 'missing', consumed: received });
+          },
+        });
+
+      return () => subscription.unsubscribe();
+    });
+  }
 
   /**
    * Performs a cached, validated, rate-limit-aware GET.
@@ -480,4 +680,30 @@ export class GithubApiService {
         });
     }
   }
+}
+
+/**
+ * Shared encoder. Allocating one per response would be wasteful and `TextEncoder` holds
+ * no per-call state.
+ */
+const UTF8 = new TextEncoder();
+
+/**
+ * The size of a string in encoded UTF-8 bytes.
+ *
+ * Used wherever a byte allowance has to be checked against text that has already been
+ * decoded, so the check is in the same unit as the allowance. `String.prototype.length`
+ * is not that unit: it counts UTF-16 code units, so `'𝄞'.length` is 2 where the character
+ * occupies 4 bytes on the wire.
+ *
+ * `TextEncoder.encode` allocates, which is why this is reached only for a body already
+ * held in memory and already bounded by the per-file cap — never for a stream being
+ * consumed, where the progress counter reports true wire bytes directly.
+ *
+ * Note that UTF-8 length is always greater than or equal to the UTF-16 code-unit count,
+ * so the cheaper code-unit comparison used while streaming can only ever refuse a
+ * transfer earlier than this would. It is conservative, not permissive.
+ */
+function utf8ByteLength(text: string): number {
+  return UTF8.encode(text).length;
 }

@@ -47,7 +47,12 @@ export const CATEGORY_LABELS: Readonly<Record<CategoryId, string>> = {
   'dependency-security': 'Dependency Security',
   'dependency-health': 'Dependency Health',
   'security-configuration': 'Security Configuration',
-  maintenance: 'Maintenance and Activity',
+  // Named for what it actually measures. "Maintenance" over-claimed: the category scores
+  // push recency and the archived flag, and cannot see review practice, issue response,
+  // release discipline or whether changes are any good. A one-day-old repository with a
+  // single commit scored "Maintenance: 100/100", which read as a judgement the evidence
+  // could not support (P1-4).
+  maintenance: 'Activity and Recency',
   engineering: 'Engineering and Project Quality',
 } as const;
 

@@ -50,22 +50,31 @@ export function calculateOverall(categories: readonly CategoryResult[]): Overall
   );
   const score = Math.round(weighted / scorableWeight);
 
-  // Coverage is weighted the same way, so a confident score over thin data still reads
-  // as thin.
-  const coverage =
-    scorable.reduce(
-      (total, category) => total + category.coverage * CATEGORY_WEIGHTS[category.id],
-      0,
-    ) / scorableWeight;
+  // Evidence depth, weighted the same way, so a confident score over thin data still
+  // reads as thin. Reduced by excluded categories as well as by thinly-evidenced ones.
+  //
+  // P2-1: this was previously divided by `scorableWeight` and then multiplied by it
+  // again. The operations cancel exactly, so the emitted value was always this sum — the
+  // intermediate made a simple formula look like a subtler one and invited a "fix" that
+  // would have changed behaviour.
+  const coverage = scorable.reduce(
+    (total, category) => total + category.coverage * CATEGORY_WEIGHTS[category.id],
+    0,
+  );
 
   return {
     kind: 'scored',
     score,
     band: bandFor(score),
-    // Overall coverage is reduced by excluded categories as well as by thin ones.
-    coverage: coverage * scorableWeight,
+    coverage,
+    // P1-3: the share of intended analysis that could be scored at all, reported as its
+    // own field. It was previously computed only inside the explanation sentence, where
+    // it sat beside `coverage` as a bare percentage with nothing naming either — so a
+    // report showing 60% and 50% read as self-contradictory when both were correct and
+    // measuring different things.
+    assessedWeight: scorableWeight,
     excludedCategories: excluded,
-    explanation: explain(score, scorableWeight, excluded),
+    explanation: explain(score, scorableWeight, coverage, excluded),
   };
 }
 
@@ -78,18 +87,42 @@ export function bandFor(score: number): ScoreBand {
   return 'Poor';
 }
 
-function explain(score: number, scorableWeight: number, excluded: readonly CategoryId[]): string {
+/**
+ * Writes the explanation, naming what each percentage measures.
+ *
+ * The two figures are different quantities and are equal only when every scored category
+ * is fully evidenced, so they must never be presented as comparable numbers:
+ *
+ * - **assessed weight** — how much of the intended analysis could be scored at all.
+ * - **evidence coverage** — how well-evidenced the part that ran actually was.
+ */
+function explain(
+  score: number,
+  scorableWeight: number,
+  coverage: number,
+  excluded: readonly CategoryId[],
+): string {
   const band = bandFor(score).toLowerCase();
+  const assessed = Math.round(scorableWeight * 100);
+  const evidence = Math.round(coverage * 100);
   const base = `DepGuard rates this repository ${score} out of 100 (${band}).`;
 
+  const depth =
+    `Evidence coverage is ${evidence}% of the full analysis — that is how much of the intended ` +
+    `evidence DepGuard actually obtained, which is a different measure from how many ` +
+    `categories ran.`;
+
   if (excluded.length === 0) {
-    return `${base} All five analysis categories completed.`;
+    return (
+      `${base} All five analysis categories were scored, covering 100% of the intended ` +
+      `analysis by weight. ${depth}`
+    );
   }
 
-  const percentage = Math.round(scorableWeight * 100);
   return (
-    `${base} ${excluded.length} of 5 categories could not be assessed, so this score reflects ` +
-    `${percentage}% of the intended analysis. Excluded categories are not counted as failures, ` +
-    `but their absence means less is known about this repository.`
+    `${base} ${excluded.length} of 5 categories could not be assessed, so the categories that ` +
+    `were scored account for ${assessed}% of the intended analysis by weight. Excluded ` +
+    `categories are not counted as failures, but their absence means less is known about this ` +
+    `repository. ${depth}`
   );
 }

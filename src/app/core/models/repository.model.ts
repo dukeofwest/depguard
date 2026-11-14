@@ -88,6 +88,55 @@ export interface ReleaseInfo {
  * Every optional source is `null` when unavailable, so the engine can tell "we looked and
  * it is not there" from "we could not look".
  */
+/**
+ * Why a data source produced no data.
+ *
+ * These are not interchangeable, and conflating them is how a report comes to assert a
+ * fact it has no evidence for: a rate limit reported as "GitHub has no dependency graph
+ * for this repository" is a claim about GitHub's state derived from an absence of
+ * evidence (P1-2). `pending` matters for the same reason — GitHub answers `202 Accepted`
+ * while it computes repository statistics, which is "not yet", not "none" (P1-6).
+ */
+export type SourceUnavailableReason =
+  /** 404 — the resource genuinely does not exist for this repository. */
+  | 'not-found'
+  /** 202 — GitHub accepted the request and is still computing the answer. */
+  | 'pending'
+  /** 403 without an exhausted quota — forbidden, disabled or blocked. */
+  | 'access-denied'
+  | 'rate-limited'
+  | 'network'
+  | 'timeout'
+  | 'cancelled'
+  /** Retrieved, but the content could not be read. */
+  | 'invalid'
+  /** Retrieved and recognised, but in a form this release does not handle. */
+  | 'unsupported'
+  /** Rejected by a size, depth or count bound rather than read. */
+  | 'limit-exceeded'
+  /** Anything else, including an unexpected status. */
+  | 'error';
+
+/** An optional data source: either it produced data, or it says precisely why not. */
+export type SourceState =
+  | { readonly kind: 'available' }
+  | {
+      readonly kind: 'unavailable';
+      readonly reason: SourceUnavailableReason;
+      /** User-facing, already safe to render. Never a stack trace or raw API body. */
+      readonly detail: string;
+    };
+
+/** The optional sources whose availability is tracked. */
+export type SourceId =
+  | 'tree'
+  | 'workflows'
+  | 'latest-release'
+  | 'contributors'
+  | 'languages'
+  | 'commit-activity'
+  | 'dependency-graph';
+
 export interface RepositorySnapshot {
   readonly metadata: RepositoryMetadata;
   readonly tree: RepositoryTree | null;
@@ -99,6 +148,25 @@ export interface RepositorySnapshot {
   readonly weeklyCommits: readonly number[] | null;
   /** Contents of specific allowlisted files, fetched from raw.githubusercontent.com. */
   readonly fileContents: Readonly<Record<string, string>>;
+  /**
+   * Why each optional source is absent, for the sources that are.
+   *
+   * Carried alongside the nullable fields rather than replacing them: every existing
+   * consumer keeps working, and the ones that need to explain an absence can.
+   */
+  readonly sourceStates: Readonly<Partial<Record<SourceId, SourceState>>>;
   /** When this snapshot was taken (ISO 8601). */
   readonly retrievedAt: string;
 }
+
+/**
+ * 52 weeks of commit totals.
+ *
+ * Three-way rather than nullable because `202 Accepted` is a distinct answer: GitHub is
+ * computing the statistics and has not failed. Reporting that as "no commit activity"
+ * would turn a young repository's missing data into a finding (P1-6).
+ */
+export type WeeklyCommits =
+  | { readonly kind: 'available'; readonly weeks: readonly number[] }
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'unavailable' };
