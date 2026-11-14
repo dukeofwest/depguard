@@ -69,6 +69,7 @@ On Windows PowerShell, use `npm.cmd` if the execution policy blocks `npm.ps1`.
 | CSP enforcement                 | Negative controls in real Chrome                                    | `tools/csp-test.mjs`                                                       |
 | Production artifact             | Source maps, dev code, sinks, CSP, secrets, origins                 | `tools/release-review.cjs`                                                 |
 | Workflow security               | Zizmor, `--persona=auditor --min-severity=low`                      | CI job `workflows`                                                         |
+| Tool scripts parse              | `node --check` over every script in `tools/`                        | `tools/check-docs.cjs`                                                     |
 | Dependency advisories           | `npm audit`, gated separately for runtime and build                 | CI job `audit`                                                             |
 
 ---
@@ -163,9 +164,10 @@ to a visitor's browser, so a single advisory of any severity fails the build. Cu
 **The whole tree — `npm audit --audit-level=high`.** The build toolchain. A high or
 critical finding fails the build; moderates are reported and triaged, not ignored.
 
-A count from `npm audit` is a count of dependency _paths_, not of distinct problems. At
-the time of writing it reports 31 moderate advisories, which are **two** root advisories
-(`glob` and `minimatch`) reached by 31 different paths. Read the advisory list, not the
+A count from `npm audit` is a count of dependency _paths_, not of distinct problems. It
+reported 31 moderate advisories before the Angular 22 upgrade, which were **two** root
+advisories (`glob` and `minimatch`) reached by 31 paths; it now reports 14, which are
+**one** root advisory (`minimatch`) reached by 14 paths. Read the advisory list, not the
 number. The current triage is in [SECURITY.md](SECURITY.md).
 
 The release gate from the requirements is "no unresolved critical or high-severity
@@ -190,6 +192,7 @@ Listed because a test suite's value is what it catches, not its size.
 | URL parser probe               | `https://github.com:8080/owner/repo` was accepted                                                                              |
 | `core/security.spec.ts`        | The export file name could contain `..` for a repository named `..`                                                            |
 | `core/security.spec.ts`        | The export left `<` and `>` unescaped, so a report forwarded and served as HTML could carry live markup                        |
+| `tools/check-docs.cjs`         | A patch left a duplicated import in three browser tools; only one of them runs in CI, so the breakage was otherwise invisible  |
 | `engine/engine-purity.spec.ts` | Three real purity violations that code review missed                                                                           |
 | `tools/a11y-test.mjs`          | Eleven WCAG AA contrast failures in the original palette                                                                       |
 | `tools/screenshot.mjs`         | A locale bug rendering `69.679` stars on an `en` page — only visible in a rendered screenshot                                  |

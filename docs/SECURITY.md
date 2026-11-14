@@ -187,10 +187,10 @@ parser, no UI component framework. Every dependency not taken is an attack path 
 `package-lock.json` is committed and CI uses `npm ci`. Two audit gates run on every
 change:
 
-| Gate                                     | Threshold              | Current state      |
-| ---------------------------------------- | ---------------------- | ------------------ |
-| `npm audit --omit=dev --audit-level=low` | any advisory fails     | **0 advisories**   |
-| `npm audit --audit-level=high`           | high or critical fails | 0 high, 0 critical |
+| Gate                                     | Threshold              | Current state                                              |
+| ---------------------------------------- | ---------------------- | ---------------------------------------------------------- |
+| `npm audit --omit=dev --audit-level=low` | any advisory fails     | **0 advisories**                                           |
+| `npm audit --audit-level=high`           | high or critical fails | 0 high, 0 critical; 14 moderate paths from 1 root advisory |
 
 ### Findings and their triage
 
@@ -211,28 +211,28 @@ to install this tree correctly with the npm 10.9.9 that Node 22 bundles. Removin
 global install also removed the only package in the pipeline that no lockfile covered —
 which is what Zizmor's `adhoc-packages` audit had flagged.
 
-**Accepted — `glob`, moderate, [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).**
-AbortSignal cancellation bypass allowing post-timeout filesystem traversal. Reached only
-through `@angular/cli` → `pacote`. The only fix is `@angular/cli@22`, a framework major
-upgrade that needs its own verification pass and is not a security patch.
+**Resolved — `glob`, moderate, [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).**
+AbortSignal cancellation bypass allowing post-timeout filesystem traversal, reached through
+`@angular/cli` → `pacote`. Cleared by the Angular 22 upgrade, as predicted.
 
 **Accepted — `minimatch`, moderate, [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).**
-Denial of service via globparts amplification. Reached through the Angular CLI and ESLint.
-The offered fix is an ESLint **downgrade** from 10 to 9.39.5, which trades a current
-linter for a moderate advisory in a glob library used at lint time. Not a worthwhile trade.
+Denial of service via globparts amplification. After the Angular 22 upgrade this is reached
+only through the ESLint toolchain, and the fix npm offers is a **downgrade** of
+`typescript-eslint` to 8.36.0 — trading a current linter for a moderate denial-of-service
+advisory in a glob library that runs at lint time. Not a worthwhile trade.
 
-Both accepted findings are build-time only, and that is verified rather than asserted:
-neither `minimatch` nor `glob` appears anywhere in the shipped bundle, which contains no
-`require(`, no `process.env` and no `__dirname`. They affect a developer's machine and the
-CI runner, where the glob input is this repository's own file tree. Both clear when Angular
-22 is adopted; Dependabot will propose it.
+This is build-time only, and that is verified rather than asserted: `minimatch` appears
+nowhere in the shipped bundle, which contains no `require(`, no `process.env` and no
+`__dirname`. It affects a developer's machine and the CI runner, where the glob input is
+this repository's own file tree.
 
 ### Signatures and provenance
 
-`npm audit signatures` runs in CI. All 587 installed packages carry a verified registry
-signature, and 226 also carry provenance attestations. This answers a different question
-from `npm audit`: not whether a package has a known advisory, but whether the tarball
-installed is the one the registry signed.
+`npm audit signatures` runs in CI, and every installed package carries a verified registry
+signature. This answers a different question from `npm audit`: not whether a package has a
+known advisory, but whether the tarball installed is the one the registry signed. The gate
+is that the check passes, not a fixed package count, because the count moves with every
+dependency change.
 
 ### Lifecycle scripts
 

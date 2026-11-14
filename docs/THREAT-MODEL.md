@@ -330,9 +330,10 @@ and `npm ci` verifies integrity hashes after restoring — so a poisoned entry f
 install rather than being installed. The Pages artifact is produced by the build job and
 consumed by the deploy job in the same workflow run; the deploy job checks out no code and
 runs nothing from the repository, so there is no step between production and publication
-for an attacker to influence. `npm audit signatures` additionally verifies that all 587
-installed packages carry the registry signature they should, with provenance attestations
-on 226 of them.
+for an attacker to influence. `npm audit signatures` additionally verifies that every
+installed package carries the registry signature it should, with provenance attestations on
+a substantial share of them. CI asserts that the check passes rather than a fixed count,
+since the counts move with every dependency change.
 
 **Residual risk.** Accepted and significant: a compromise of Angular, rxjs or tslib
 upstream would reach the bundle, and `npm ci` verifies integrity hashes against the
@@ -445,9 +446,10 @@ security issue; each is either inherent to the architecture or a deliberate trad
    looks only at the headline number. Open question in [ROADMAP.md](ROADMAP.md).
 8. **Advisory reference hosts are not allowlisted**, so a poisoned feed could link to a
    phishing page.
-9. **Two moderate build-time advisories** (`glob`, `minimatch`) have no fix that does not
-   require a framework major upgrade or a linter downgrade. Neither package appears in the
-   shipped bundle — verified, not assumed. Triage in [SECURITY.md](SECURITY.md).
+9. **One moderate build-time advisory** (`minimatch`) has no fix that does not require a
+   linter downgrade. The `glob` advisory that sat beside it was cleared by the Angular 22
+   upgrade. `minimatch` appears nowhere in the shipped bundle — verified, not assumed.
+   Triage in [SECURITY.md](SECURITY.md).
 10. **Six unverified OSV ecosystems** are queried with a disclosure in the report, mapped
     from documentation rather than demonstrated against live data.
 

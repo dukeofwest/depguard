@@ -3,7 +3,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    // TypeScript 6 requires rootDir to be explicit whenever outDir is set (TS5011), so
+    // that the output layout cannot shift when the set of input files changes. Pinned to
+    // ./src rather than inferred: inference would make the layout depend on which files
+    // happen to match "include".
     "outDir": "./out-tsc/app",
+    "rootDir": "./src",
     "types": []
   },
   "include": ["src/**/*.ts"],

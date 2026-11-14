@@ -259,6 +259,36 @@ for (const sourceFile of sourceFiles) {
 }
 console.log(`  ${sourceFiles.length} source files contain no dangerous DOM or eval sink`);
 
+// ---- 2c. Every tool must at least parse ----------------------------------
+//
+// Only one of the browser tools runs in CI, so a syntax error in the others would sit
+// undetected until someone ran them by hand - which is exactly what happened once: a
+// patch left a duplicated import in three of them, and the one tool CI exercises was
+// unaffected. A parse check is cheap and catches that whole class of mistake.
+console.log('\n=== Tool syntax check ===');
+{
+  const { execFileSync } = require('child_process');
+  const toolsDir = path.join(root, 'tools');
+  const scripts = fs
+    .readdirSync(toolsDir)
+    .filter((name) => /.(mjs|cjs|js)$/.test(name))
+    .sort();
+
+  for (const name of scripts) {
+    try {
+      execFileSync(process.execPath, ['--check', path.join(toolsDir, name)], {
+        stdio: 'pipe',
+      });
+    } catch (error) {
+      const detail = String(error.stderr ?? error.message)
+        .split('\n')
+        .find((line) => /Error/.test(line));
+      fail(`tools/${name} does not parse: ${detail ?? 'unknown error'}`);
+    }
+  }
+  console.log(`  ${scripts.length} tool script(s) parse`);
+}
+
 // ---- 3. No placeholder text --------------------------------------------
 console.log('\n=== Placeholder check ===');
 for (const file of markdownFiles(root)) {

@@ -137,7 +137,7 @@ and a scan will not start when too few remain — so it cannot fail halfway thro
 
 ## Technology
 
-Angular 21 (standalone, zoneless, signals) · strict TypeScript · native CSS with design
+Angular 22 (standalone, zoneless, signals) · strict TypeScript · native CSS with design
 tokens · Vitest.
 
 No Nx, no NgModules, no UI component framework. Runtime dependencies are Angular, RxJS and
@@ -173,7 +173,8 @@ one that disproved the specification's own premise.
 
 ## Local development
 
-Requires Node 20.19+, 22.12+ or 24+.
+Requires Node 22.22.3+, 24.15+ or 26+ — the range Angular 22 declares. Node 20 is no
+longer supported.
 
 ```bash
 npm install
